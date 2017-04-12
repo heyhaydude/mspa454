@@ -1,0 +1,295 @@
+---
+title: "Assignment 1"
+author: "Matt Hayden"
+date: "3/31/2017"
+output: html_document
+---
+
+```{r setup_knitr, include = F}
+# Set code width to 60 to contain within PDF margins
+knitr::opts_chunk$set(tidy = F, tidy.opts = list(width.cutoff = 60))
+
+# Set all figures to be centered
+knitr::opts_chunk$set(fig.align = "center")
+
+# Set echo to off
+knitr::opts_chunk$set(echo = F)
+```
+
+### Introduction
+
+In this assignment, we will perform a data quality check and an exploratory data analysis of the wine dataset. In this dataset, the goal is to determine the quality of the wine based on chemical and physical characteristics of the wine. The quality is graded by being put into a group of Class I, II, or III. The samples in this dataset come from 3 different cultivars in Italy.
+
+```{r loaddata, echo=FALSE}
+setwd('/Users/haydude/Google Drive/nu - 454 adv model/Assignment 1')
+wine = read.csv('wine.data.csv',header = FALSE)
+wine.variable.names = c('Class','Alcohol','Malic.Acid','Ash','Alcalinity',
+                        'Magnesium','Total.Phenols','Flavanoids',
+                        'Nonflavanoid.Phenols','Proanthocyanins',
+                        'Color.Intensity','Hue','OD280.OD315','Proline')
+colnames(wine) = wine.variable.names
+
+```
+
+### Data Quality Check
+
+First, it is important to understand whether or not the data we have is trustworthy. The Wine dataset has 178 observations from the 3 different cultivars, and there are 13 predictors variables available for us to predict the dependent variable, Class. These variables and descriptions are described in Figure 1 below. While there are no missing values, we need to determine if the values are trustworthy.
+
+###### Figure 1
+```{r table of variables}
+wine.variable.types = apply(wine,2,class)
+wine.variable.types[1] = 'factor'
+
+wine.variable.descriptions = c('Class of wine',
+                               'Percentage of alcohol content',
+                               'Malic acid content',
+                               'Ash content',
+                               'Alcalinity',
+                               'Magnesium content',
+                               'Total phenols',
+                               'Flavanoids',
+                               'Nonflavanoid.Phenols',
+                               'Proanthocyanins',
+                               'Intensity of the wine color',
+                               'Hue of the wine',
+                               'OD280/OD315 of diluted wines',
+                               'Proline')
+wine.variable.table = data.frame(wine.variable.names, wine.variable.types, wine.variable.descriptions)
+colnames(wine.variable.table) = c('Name','Type','Description')
+library(pander)
+temp = wine.variable.table
+row.names(temp) = seq_along(1:dim(temp)[1])
+pander(temp,justify = c('left', 'left', 'left'))
+
+```
+
+As an initial check of data quality, we look at basic statistics for the predictors:
+
+* Alcohol content ranges between 11 - 14.8% alcohol. This appears normal.
+* Several predictors have values many standard deviations from the mean (e.g Malic Acid, Ash). These variables will need to be investigated further to make sure the results are expected.
+* Magnesium is the only variables with values more than 4 standard deviations from the mean.
+
+###### Figure 2
+```{r data quality check, echo=FALSE}
+# missing values
+checkmissing = table(is.na(wine)) # no missing values
+checkmissing = which(is.na(wine), arr.ind = TRUE)
+
+wine.means = sapply(wine[,-1],mean)
+wine.mins = sapply(wine[,-1],min)
+wine.maxs = sapply(wine[,-1],max)
+wine.missing = apply(is.na(wine[,-1]),2,sum)
+wine.sds = sapply(wine[,-1],sd)
+wine.numbers = data.frame(wine.means, wine.mins, wine.maxs, wine.sds, wine.missing)
+maxs = (wine.maxs - wine.means) / wine.sds
+mins = (wine.means - wine.mins) / wine.sds
+bigger = apply(data.frame(maxs,mins), 1, max)
+wine.numbers = data.frame(wine.means, wine.mins, wine.maxs, wine.sds, wine.missing, bigger)
+wine.numbers.names = c('Mean','Min','Max','SD','Missing','Largest SD')
+colnames(wine.numbers) = wine.numbers.names
+wine.numbers = round(wine.numbers,digits=2)
+pander(wine.numbers)
+
+```
+
+We can get an overall look at the distributions of the variables by looking at the boxplots for each of the variables. The dots in Figures 3 and 4 reveal potential outliers. We also see that Malic Acid and OD280/OD315 have more pronounced skews than the other variables. Transformations are likely to be a good idea for those variables. Overall the data looks like it is decent shape, but we should take a closer look.
+
+```{r boxplots, echo=FALSE, out.width = '500px', dpi=200}
+
+library(lattice)
+library(ggplot2)
+
+wine.scaled = scale(wine)
+
+st = stack(as.data.frame(wine.scaled[,2:7]))
+ggplot(as.data.frame(st)) +
+  geom_boxplot(aes(x = ind, y = values)) +
+    theme(axis.text.x = element_text(angle=0)) +
+      scale_x_discrete(name ="") + scale_y_continuous(name ="") +
+          ggtitle("Figure 3 - Boxplots of Variables") 
+
+st = stack(as.data.frame(wine.scaled[,8:13]))
+ggplot(as.data.frame(st)) +
+  geom_boxplot(aes(x = ind, y = values)) +
+    theme(axis.text.x = element_text(angle=0)) +
+      scale_x_discrete(name ="") + scale_y_continuous(name ="") +
+          ggtitle("Figure 4 - Boxplots of Variables (cont)") 
+```
+
+In Figure 5 below, we are plotting the number of observations that variables have more than 2 standard deviations from the mean. Of the 178 observation, 56 of them fall outside of 2 standard deviations from the mean, and 17 of them have multiple variables that are more than 2 standard deviations. Looking at 3 standard deviations from the mean, there are only 10 observations, 1 of which has multiple variables more than 3 standard deviations from the mean. Given that their aren't many "extreme" observations, and not more than 4 standard deviations from the mean, it is probable that all of the data is acceptable to be included in a future analysis.
+
+###### Figure 5 - Number of Values >2 Standard Deviations from Mean
+
+```{r outliers, echo=FALSE, out.width = '500px'}
+
+wine.scaled.abs = abs(scale(wine))
+wine.variable.outliers.indices = which(wine.scaled.abs[,-1] >= 3, arr.ind = TRUE)
+wine.variable.outliers.indices[,2] = apply(wine.variable.outliers.indices,
+                                           1,
+                                           function(x) x[2] = wine.variable.names[x[2]+1])
+wine.variable.outliers.table = table(wine.variable.outliers.indices[,2])
+barchart(wine.variable.outliers.table, horizontal = FALSE, 
+         xlab="", ylab="Frequency",
+         scales = list(x = list(rot = 45)))
+
+outliers.withmultipleissues = sum(table(wine.variable.outliers.indices[,1]) > 1)
+
+
+```
+
+### Exploratory Data Analysis
+
+Now that the data is validated, we turn to an exploratory data analysis to understand the nature of the information we are looking at. First, in Figure 6, we are looking to see what the impact of Class is on the variables using density plots.
+
+These plots show us that Class has an impact on almost all of the variables included in the study. None of the variables peak at the same value. And many of the variables have classes that dominate value ranges, which is a good indicator that a machine learning algorithm can successfully determine the distinct classes. For example, Proline shows that values above 1000 are most likely in Class 1. And low Alcohol content indicates Class 2.
+
+###### Figure 6 - Variable Density Plots
+```{r density, echo=FALSE}
+library(lattice)
+density.plots = densityplot(~ Alcohol + Malic.Acid + Alcalinity + Magnesium + Total.Phenols + Flavanoids + 
+                              Nonflavanoid.Phenols + Proanthocyanins + Color.Intensity + Hue + OD280.OD315 + Proline,
+                            data=wine, groups = Class, plot.points = FALSE, auto.key = list(space="right",title="Class"),
+                            scales= list(x="free",y="free"), xlab = '')
+
+plot(density.plots)
+```
+```{r correlations, echo=FALSE}
+#wine.correlations = cor(wine[, -1])
+
+#wine.correlations.ordered = order.dendrogram(as.dendrogram(hclust(dist(wine.correlations))))
+#levelplot(wine.correlations[wine.correlations.ordered,wine.correlations.ordered], 
+#          at = do.breaks(c(-1.01,1.01),20),
+#          scales=list(x=list(rot=90)),
+#          xlab='',ylab='',main='Variable Correlations')
+
+```
+
+Next, we will look at the correlations between the variables to see what is related. This will help with addressing multi-collinearity issues in an analysis. We see the following variables with higher correlations that should be investigated further:
+
+_Positive Correlations_
+
+* Flavanoids and Total Phenols 
+* Flavanoids and OD280/OD315
+* Alcohol and Proline
+
+_Negative Correlations_
+
+* Hue and Malic Acid
+
+###### Figure 7 - Variable Correlation Matrix
+```{r correlations v2, echo=FALSE}
+library(corrplot)
+corrplot(cor(wine[, wine.variable.names[-1]]), 
+         tl.col = "black", tl.cex = 0.8, tl.srt = 45,
+         type="lower")
+```
+
+### Model-Based Exploratory Data Analysis
+
+Doing basic model analysis of the Wine dataset can reveal some important truths within the data. By applying a random forest model, we are able to see which variables are more important in determining class. We see that Color Intensity, Proline, and Flavanoids account for the most improvements in mean squared error. Also, we see that Flavanoids have the best node purity. This is confirmed by looking at the density plots in Figure 6 above, that show 3 distinct Class curves with minimal overlap.
+
+###### Figure 8
+```{r random forest, echo=FALSE, include=FALSE}
+library(randomForest)
+wine.rf = randomForest(Class~.,data=wine,mtry=4,importance=TRUE)
+varImpPlot(wine.rf, main='Variable Importance from Random Forest')
+
+```
+
+```{r class random forest 2, echo=FALSE}
+varImpPlot(wine.rf, main='Variable Importance from Random Forest')
+
+```
+
+Next, we plot a decision tree to get a graphical display of which variables play the most important part in determining Class. The variables selected in this model correspond with the 4 variables with the highest node purity in the random forest model.
+
+###### Figure 9 - Decision Tree Graph
+```{r decision tree, echo=FALSE}
+library(rpart)
+library(rpart.plot)
+library(pander)
+#library(rattle)
+#fancyRpartPlot(rpart(wine$Class ~ ., data = wine), sub = "")
+rpart.plot(rpart(wine$Class	~	.,	data	=	wine))
+
+```
+
+Next, performing a rudimentary Linear Discriminant Analysis (LDA), we are able to see that the modeling process identifies clear boundaries between the 3 classes. In LDA, the technique finds a combination of the	predictors that gives	maximum	separation between the centers of the	data while at the same time	minimizing the variation within each	group. The fact that we see clear boundaries means a modeling effort will find success.
+
+###### Figure 10 - Linear Discriminant Analysis of LD1 vs LD2
+```{r lda, echo=FALSE}
+library(MASS)
+# all predictors
+wine.lda = lda(Class ~ .,data = as.data.frame(wine))
+plot(wine.lda, col=wine$Class)
+
+```
+
+Finally, we look at a Principal Component Analysis (PCA). This analysis shows us which variables explain the most variance in the the dataset. In PC1, Total Phenols and Flavanoids explain the most variance. In PC2, Color Intensity and Alcohol explain the most variance. These are likely to be important variables in a future analysis of this dataset.
+
+###### Figure 11 - Principal Component Analysis of PC1 vs PC2
+```{r pca, echo=FALSE}
+wine.wo.class = wine[,-1]
+wine.pcr = prcomp(wine.wo.class, scale = T)
+#biplot(wine.pcr, xlabs = wine[, "Class"])
+#wine$Class = as.factor(wine$Class)
+
+library(ggplot2)
+PCbiplot <- function(dat, PC, x="PC1", y="PC2", colors=c('black', 'black', 'blue', 'lightblue')) {
+    # PC being a prcomp object
+    data <- data.frame(obsnames=wine$Class, PC$x)
+    plot <- ggplot(data, aes_string(x=x, y=y)) + geom_text(alpha=.5, size=3, aes(label=obsnames), color=data$obsnames)
+    plot <- plot + geom_hline(aes(0), size=.1, yintercept = 0) + geom_vline(aes(0), size=.1, color=colors[2], xintercept = 0)
+    datapc <- data.frame(varnames=rownames(PC$rotation), PC$rotation)
+    mult <- min(
+        (max(data[,y]) - min(data[,y])/(max(datapc[,y])-min(datapc[,y]))),
+        (max(data[,x]) - min(data[,x])/(max(datapc[,x])-min(datapc[,x])))
+        )
+    datapc <- transform(datapc,
+            v1 = .7 * mult * (get(x)),
+            v2 = .7 * mult * (get(y))
+            )
+    plot <- plot + coord_equal() + geom_text(data=datapc, aes(x=v1, y=v2, label=varnames), size = 3, vjust=1, color=colors[3])
+    plot <- plot + geom_segment(data=datapc, aes(x=0, y=0, xend=v1, yend=v2), arrow=arrow(length=unit(0.2,"cm")), alpha=0.75, color=colors[4])
+    plot
+}
+
+PCbiplot(wine, wine.pcr)
+
+```
+
+### Conclusion
+
+The results of the data quality check show that the data provided is in relatively trustworthy shape. Only 2 of the variables had a pronounced skew that would benefit from a variable transformation. Additionally, only 17 of the observations had multiple values past 2 standard deviations, and could be candidates for capping values or confirming their validity. Because there are only 178 observations, it will be import to salvage as many observations as possible.
+
+Furthermore, the exploratory data analysis revealed the variables that are most likely to be useful in a predictive analysis. The tree based methods exposed Flavanoids, Proline, OD280/OD315, Hue, Alcohol, and Color Intensity as the most important variables. And the PCA analysis showed that Total Phenols is also important for explaining variance in the dataset. Given that LDA was successful in creating clear class boundaries, this initial analysis shows that modeling efforts will likely be successful for this use case.
+
+\pagebreak
+
+### Appendix - R Code
+```{r ref.label="setup_knitr", eval=FALSE, echo=TRUE}
+```
+```{r ref.label="loaddata", eval=FALSE, echo=TRUE}
+```
+```{r ref.label="table of variables", eval=FALSE, echo=TRUE}
+```
+```{r ref.label="data quality check", eval=FALSE, echo=TRUE}
+```
+```{r ref.label="boxplots", eval=FALSE, echo=TRUE}
+```
+```{r ref.label="outliers", eval=FALSE, echo=TRUE}
+```
+```{r ref.label="density", eval=FALSE, echo=TRUE}
+```
+```{r ref.label="correlations", eval=FALSE, echo=TRUE}
+```
+```{r ref.label="correlations v2", eval=FALSE, echo=TRUE}
+```
+```{r ref.label="random forest", eval=FALSE, echo=TRUE}
+```
+```{r ref.label="decision tree", eval=FALSE, echo=TRUE}
+```
+```{r ref.label="lda", eval=FALSE, echo=TRUE}
+```
+```{r ref.label="pca", eval=FALSE, echo=TRUE}
+```
