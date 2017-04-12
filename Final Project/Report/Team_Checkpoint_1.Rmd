@@ -1,0 +1,37 @@
+---
+title: "Team Checkpoint 1"
+author: "Annie Condon, Matt Hayden, Matt Robertson, Yvette Gonzalez"
+subtitle: Forest Cover Team B
+output:
+  pdf_document:
+    fig_caption: yes
+    includes:
+      before_body: latex/before_body.tex
+    number_sections: yes
+    toc: yes
+  html_document:
+    theme: united
+    toc: yes
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+\newpage
+
+# Introduction
+
+# The Modeling Problem
+
+# The Data
+
+# Exploratory Data Analysis
+
+# Predictive Modeling: Methods and Results
+
+# Comparison of Results
+
+# Conclusions
+
+# Bibliography
