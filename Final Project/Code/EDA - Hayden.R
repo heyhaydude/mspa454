@@ -1,14 +1,74 @@
-packages <- c("plyr","ggplot2","scales","reshape2","lattice","latticeExtra",
-              "corrplot","corrgram","ResourceSelection","e1071","tree","MASS")
-require(packages)
-lapply(packages,require,character.only = TRUE)
 
+########## SETUP #########################
 setwd("/Users/haydude/Development/mspa/MSPA454/Final Project/Data")
 gz = gzfile('covtype.data.gz','rt')   
-forest = read.csv(gz,header=F)
-forest.colnames = read.csv('covtyp.colnames.csv',header=F)
-colnames(forest) = forest.colnames$V1
+forest.orig = read.csv(gz,header=F)
+forest.orig.colnames = t(read.csv('covtyp.colnames.csv',header=F))
+colnames(forest.orig) = forest.orig.colnames
+forest.var.continuous = c('Elevation','Aspect','Slope', 'HDist.Hydrology', 'VDist.Hydrology', 
+                          'HDist.Roadway', 'Hillshade.9am', 'Hillshade.12pm', 'Hillshade.3pm',
+                          'HDist.FirePoint')
+
+# assign factor/discrete variables
+library(dplyr)
+forest.var.discrete.indices = grep("^Area|^SoilType|CoverType", colnames(forest.orig))
+forest.orig[,forest.var.discrete.indices] = as.factor(unlist(forest.orig[,forest.var.discrete.indices]))
+
+summary(forest.orig)
+
+# for speed, will perform eda on subset until ready to do a full run
+set.seed(33)
+forest = forest.orig[sample(nrow(forest.orig),10000),]
+
+str(forest.orig)
+colnames(forest)
+barplot(table(forest$CoverType))
+table(is.na(forest)) # no missing values
+
+
+########## DATA TRANSFORMATIONS and VARIABLE MAINTENANCE #########################
+apply(sapply(forest,as.numeric),2,sum) #soil type 15 doesn't have any observations. so remove
+forest[,'SoilType15'] = NULL
 
 str(forest)
-head(forest)
-colnames(forest)
+
+#### CONTINUOUS VARIABLES #################
+
+# boxplots
+library(ggplot2)
+forest.scaled = scale(forest) 
+st = stack(as.data.frame(forest.scaled[,forest.var.continuous]))
+ggplot(as.data.frame(st)) +
+  geom_boxplot(aes(x = ind, y = values)) +
+  theme(axis.text.x = element_text(angle=0)) +
+  scale_x_discrete(name ="") + scale_y_continuous(name ="") +
+  ggtitle("Figure 3 - Boxplots of Scaled Continuous Variables") 
+
+# density plots by CoverType
+library(lattice)
+density.plots = densityplot(~ Elevation + Aspect + Slope + HDist.Hydrology + VDist.Hydrology + 
+                            HDist.Roadway + Hillshade.9am + Hillshade.12pm + Hillshade.3pm +
+                            HDist.FirePoint,
+                            data=forest, groups = CoverType, plot.points = FALSE, 
+                            auto.key = list(space="right",title="Class"),
+                            scales= list(x="free",y="free"), xlab = '')
+plot(density.plots)
+
+# correlations
+library(corrplot)
+corrplot(cor(forest[, forest.var.continuous]), 
+         tl.col = "black", tl.cex = 0.8, tl.srt = 45,
+         cl.cex = 0.8, pch.cex = 0.8, diag = FALSE,
+         type="lower")
+
+#lda
+library(MASS)
+idx = grep("CoverType", colnames(forest))
+forest.wo.covertype = forest[,-idx]
+forest.lda = lda(CoverType ~ .,data = forest)
+#plot(forest.lda, col=forest$CoverType)
+forest.lda.pred = predict(forest.lda,data=forest.wo.covertype)
+tbl = table(forest.lda.pred$class,forest$CoverType)
+plot(tbl)
+addmargins(tbl)
+
