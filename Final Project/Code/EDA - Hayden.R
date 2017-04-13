@@ -63,7 +63,8 @@ library(corrplot)
 corrplot(cor(forest[, forest.var.continuous]), 
          tl.col = "black", tl.cex = 0.8, tl.srt = 45,
          cl.cex = 0.8, pch.cex = 0.8, diag = FALSE,
-         type="lower")
+         type="lower",
+         addCoefasPercent = TRUE, addCoef.col = TRUE,number.cex = .6) #Matt added to show correlation amounts
 
 #lda
 library(MASS)
