@@ -104,7 +104,42 @@ soil.sums.byclass
 
 soil.ratios = as.data.frame(t(soil.sums.byclass)/soil.sums)
 library(RColorBrewer)
-barchart(na.omit(as.matrix(soil.ratios)),col=brewer.pal(7, "Pastel2"))
+soil.ratios.m = na.omit(as.matrix(soil.ratios))
+barchart(soil.ratios.m,col=brewer.pal(7, "Pastel2"))
+
+
+# AREAS
+library(lattice)
+idx = grep("Area|CoverType", colnames(forest.numeric))
+df = as.data.frame(forest.numeric[,idx])
+idx.type = grep("CoverType", colnames(df))
+
+df.temp = df[,-idx.type]
+
+area.sums = apply(df.temp,2,function(x) {
+  tbl = table(x,df$CoverType)
+  if (dim(tbl)[1] < 2) {
+    tbl = rbind('0' = tbl, '1' = rep(0,7), deparse.level = 1)
+  }
+  return (apply(tbl,1,sum)[2])
+})
+area.sums
+
+area.sums.byclass = apply(df[,-idx.type],2,function(x) {
+  tbl = table(x,df$CoverType)
+  tbl = tbl[seq(2,14,by=2)]
+  return (tbl)
+})
+area.sums.byclass
+
+area.ratios = as.data.frame(t(area.sums.byclass)/area.sums)
+library(RColorBrewer)
+area.ratios.m = na.omit(as.matrix(area.ratios))
+barchart(area.ratios.m,col=brewer.pal(7, "Pastel2"))
+
+
+
+
 
 #Questions
 # how often is same soil types together
