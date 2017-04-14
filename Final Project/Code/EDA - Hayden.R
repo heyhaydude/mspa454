@@ -30,7 +30,18 @@ table(is.na(forest)) # no missing values
 
 
 ########## DATA TRANSFORMATIONS and VARIABLE MAINTENANCE #########################
+
 apply(sapply(forest,as.numeric),2,sum) #soil type 15 doesn't have any observations. so remove
+
+# are any in multiple areas? NO. all belong to only one area
+idx = grep("Area", colnames(forest))
+temp = forest.numeric[,idx]
+temp[apply(temp,1,sum) > 1,]
+temp$Area = apply(temp,1,function(x) {
+  return(which.max(x))
+})
+forest.numeric$Area = temp$Area
+
 
 forest.numeric = sapply(forest,as.numeric) 
 
@@ -57,6 +68,17 @@ density.plots = densityplot(~ Elevation + Aspect + Slope + HDist.Hydrology + VDi
                             auto.key = list(space="right",title="Class"),
                             scales= list(x="free",y="free"), xlab = '')
 plot(density.plots)
+
+# density plots by Area
+library(lattice)
+density.plots = densityplot(~ Elevation + Aspect + Slope + HDist.Hydrology + VDist.Hydrology + 
+                              HDist.Roadway + Hillshade.9am + Hillshade.12pm + Hillshade.3pm +
+                              HDist.FirePoint,
+                            data=forest.numeric, groups = Area, plot.points = FALSE, 
+                            auto.key = list(space="right",title="Class"),
+                            scales= list(x="free",y="free"), xlab = '')
+plot(density.plots)
+
 
 # correlations
 library(corrplot)
