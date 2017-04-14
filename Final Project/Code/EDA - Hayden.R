@@ -16,8 +16,8 @@ library(dplyr)
 
 # for speed, will perform eda on subset until ready to do a full run
 set.seed(33)
-forest = forest.orig[sample(nrow(forest.orig),10000),]
-forest[,'SoilType15'] = NULL
+forest = forest.orig[sample(nrow(forest.orig),20000),]
+#forest[,'SoilType15'] = NULL
 forest.numeric = forest
 forest.var.discrete.indices = grep("^Area|^SoilType|CoverType", colnames(forest))
 forest[,forest.var.discrete.indices] = as.factor(unlist(forest[,forest.var.discrete.indices]))
@@ -51,8 +51,8 @@ ggplot(as.data.frame(st)) +
 # density plots by CoverType
 library(lattice)
 density.plots = densityplot(~ Elevation + Aspect + Slope + HDist.Hydrology + VDist.Hydrology + 
-                            HDist.Roadway + Hillshade.9am + Hillshade.12pm + Hillshade.3pm +
-                            HDist.FirePoint,
+                              HDist.Roadway + Hillshade.9am + Hillshade.12pm + Hillshade.3pm +
+                              HDist.FirePoint,
                             data=forest, groups = CoverType, plot.points = FALSE, 
                             auto.key = list(space="right",title="Class"),
                             scales= list(x="free",y="free"), xlab = '')
@@ -81,11 +81,16 @@ addmargins(tbl)
 
 library(lattice)
 idx = grep("SoilType|CoverType", colnames(forest.numeric))
-df = forest.numeric[,idx]
+df = as.data.frame(forest.numeric[,idx])
 idx.type = grep("CoverType", colnames(df))
 
-soil.sums = apply(df[,-idx.type],2,function(x) {
+df.temp = df[,-idx.type]
+
+soil.sums = apply(df.temp,2,function(x) {
   tbl = table(x,df$CoverType)
+  if (dim(tbl)[1] < 2) {
+    tbl = rbind('0' = tbl, '1' = rep(0,7), deparse.level = 1)
+  }
   return (apply(tbl,1,sum)[2])
 })
 soil.sums
@@ -98,39 +103,8 @@ soil.sums.byclass = apply(df[,-idx.type],2,function(x) {
 soil.sums.byclass
 
 soil.ratios = as.data.frame(t(soil.sums.byclass)/soil.sums)
-#soil.ratios.t = as.data.frame(t(soil.ratios))
-#soil.ratios.t$CoverType = c('1','2','3','4','5','6','7')
-barchart(as.matrix(soil.ratios))
-
-
-library(reshape2)
-soil.ratios.formatted = melt(soil.ratios.t, SoilType=seq(1:39))
-#b=melt(b, id.vars=c('SoilType'),var='CoverTypes')
-
-#library(corrplot)
-#corrplot(cor(forest.numeric), 
-#         tl.col = "black", tl.cex = 0.8, tl.srt = 45,
-#         cl.cex = 0.8, pch.cex = 0.8, diag = FALSE,
-#         type="lower")
-
-
-soil.sums2 = apply(df[,-idx.type],2,function(x) {
-  tbl = table(x,df$CoverType)
-  tbl = tbl[seq(2,14,by=2)]
-  return (tbl)
-})
-soil.sums2 = apply(soil.sums2,1,sum)
-soil.sums2
-
-soil.sums.byclass2 = apply(df[,-idx.type],2,function(x) {
-  tbl = table(x,df$CoverType)
-  tbl = tbl[seq(2,14,by=2)]
-  #tbl = t(tbl)
-  return (tbl)
-})
-soil.sums.byclass2
-soil.sums.byclass2$CoverType = c('1','2','3','4','5','6','7')
-
+library(RColorBrewer)
+barchart(na.omit(as.matrix(soil.ratios)),col=brewer.pal(7, "Pastel2"))
 
 #Questions
 # how often is same soil types together
