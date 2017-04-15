@@ -23,10 +23,39 @@ forest.var.discrete.indices = grep("^Area|^SoilType|CoverType", colnames(forest)
 forest[,forest.var.discrete.indices] = as.factor(unlist(forest[,forest.var.discrete.indices]))
 
 
+########## DATA QUALITY CHECK #########################
+
 str(forest.orig)
-colnames(forest)
-barplot(table(forest$CoverType))
-table(is.na(forest)) # no missing values
+dim(forest.orig)
+table(is.na(forest.orig))
+summary(forest.orig)
+
+options(digits=3)
+my.summary <- function(x,...){
+  c(mean=mean(x, ...),
+    sd=sd(x, ...),
+    median=median(x, ...),
+    min=min(x, ...),
+    max=max(x,...),
+    type="Continuous")
+}
+
+
+forest.stats= apply(forest.orig[,1:9], 2, my.summary)
+
+c()
+
+library(knitr)
+kable(forest.stats)
+
+ggplot(as.data.frame(table(forest.orig$CoverType)), aes(x=Var1, y = Freq)) + ggtitle("Forest Cover
+Frequency by Class") + geom_bar(stat = "identity", fill="#1f78b4", width=.5,
+                                color="black") + xlab("Cover Type")
+
+
+
+
+
 
 
 ########## DATA TRANSFORMATIONS and VARIABLE MAINTENANCE #########################
