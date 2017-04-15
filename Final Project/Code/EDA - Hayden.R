@@ -53,6 +53,43 @@ Frequency by Class") + geom_bar(stat = "identity", fill="#1f78b4", width=.5,
                                 color="black") + xlab("Cover Type")
 
 
+# matt r solution
+
+## area
+forest.area= forest.orig[11:14]
+
+summary.area <- data.frame(
+  Name = character(),
+  Count = numeric(),
+  stringsAsFactors = F)
+
+for (i in 1:4){
+  summary.area[i,1] <- names(forest.area[i])
+  summary.area[i,2] <- sum(forest.area[,i])
+}
+
+summary.area
+
+area<-summary.area[with(summary.area,order(-Count)),]
+kable(area)
+
+## soil
+forest.soil= forest.orig[15:54]
+
+summary.soil <- data.frame(
+  Name = character(),
+  Count = numeric(),
+  stringsAsFactors = F)
+
+for (i in 1:40){
+  summary.soil[i,1] <- names(forest.soil[i])
+  summary.soil[i,2] <- sum(forest.soil[,i])
+}
+
+summary.soil
+
+soil<-summary.soil[with(summary.soil,order(-Count)),]
+kable(soil)
 
 
 
