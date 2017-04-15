@@ -15,18 +15,51 @@ output:
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(echo = FALSE)
 ```
 
 \newpage
 
 # Introduction
 
+The U.S. Forest Service relies on an accurate understanding of its forests' composition in order to best protect and manage the forest land. Conducting accurate inventory of forest composition by direct observation or remotely sensed data is often too expensive and time consuming to do at large-scale. Predictive analytics, however, can be employed to use the results of a small-scale survey to create a model that can be applied across a large region, using descriptive features extracted from maps of the area. 
+
+In this paper, our objective is to predict the forest cover type given a set of cartographic features and a variety of mulitclass classification models. Our models will be evaluated using predictive accuracy. 
+
+
 # The Modeling Problem
+
+
+Our modeling problem is to predict the forest cover type as a multiclass classification problem based on the associated features. Our forest cover type is defined as 
+
+While some classification algorithms naturally permit the use of more than two classes, others are by nature binary algorithms. In these cases we will have to extend the exisiting binary classifiers to solve multi-class classification problems. 
+
+Table 1 shows the seven different kinds of forest type found in our data set, along with the number of observations for each type.
+
+```{r}
+cover_types <- c("Spruce/Fir", "Lodgepole Pine", "Ponderosa Pine", "Cottonwood/Willow", "Aspen", 
+                 "Douglas/Fir", "Krummholz")
+instances <- c(211840, 283301, 35754, 2747, 9493, 17367, 20510)
+ct.df <- data.frame(cover_types, instances)
+colnames(ct.df) <- c("Cover Type", "Number of Observations")
+```
+
+```{r}
+knitr::kable(ct.df, caption = "Cover Types", format="pandoc") 
+```
+
+
+Our modeling problem is a multiclass classification problem.  Blurb on multiclass classification
+
+What types of modeling methods work on these kinds of problems
 
 # The Data
 
+The actual forest cover type for a given 30 x 30 meter cell was determined from US Forest Service (USFS) Region 2 Resource Information System data. Independent variables were then derived from data obtained from the US Geological Survey and USFS. The data is in raw form (not scaled) and contains binary columns of data for qualitative independent variables such as wilderness areas and soil type.
+
 # Exploratory Data Analysis
+
+<!--
 
 # Predictive Modeling: Methods and Results
 
@@ -35,3 +68,5 @@ knitr::opts_chunk$set(echo = TRUE)
 # Conclusions
 
 # Bibliography
+
+-->
