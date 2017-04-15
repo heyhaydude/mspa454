@@ -40,15 +40,21 @@ my.summary <- function(x,...){
     type="Continuous")
 }
 
-forest.stats= apply(forest.orig[,1:9], 2, my.summary)
+
+forest.stats= apply(forest.orig[,1:10], 2, my.summary)
+
+c()
 
 library(knitr)
 kable(forest.stats)
 
-library(ggplot2)
 ggplot(as.data.frame(table(forest.orig$CoverType)), aes(x=Var1, y = Freq)) + ggtitle("Forest Cover
 Frequency by Class") + geom_bar(stat = "identity", fill="#1f78b4", width=.5,
                                 color="black") + xlab("Cover Type")
+
+
+
+
 
 
 
