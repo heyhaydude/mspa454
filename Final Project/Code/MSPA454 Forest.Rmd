@@ -44,6 +44,26 @@ library(MASS)
 
 ```
 
+## Data Quality Check
+
+```{r data quality check, echo=FALSE}
+options(digits=3)
+my.summary <- function(x,...){
+  c(mean=mean(x, ...),
+    sd=sd(x, ...),
+    median=median(x, ...),
+    min=min(x, ...),
+    max=max(x,...),
+    type="Continuous")
+}
+
+forest.stats= apply(forest.orig[,1:9], 2, my.summary)
+
+library(knitr)
+kable(forest.stats)
+
+```
+
 ## EDA
 
 
@@ -165,3 +185,16 @@ barchart(area.ratios.m,col=brewer.pal(7, "Pastel2"))
 
 ```
 
+```{r eda distance roadway, echo=FALSE}
+
+ggplot(forest.numeric, aes(x=HDist.Roadway)) + 
+  geom_histogram(aes(group=CoverType, colour=CoverType, fill=CoverType), alpha=0.3)+ggtitle('T')
+
+```
+
+```{r eda distance water, echo=FALSE}
+
+ggplot(forest.numeric, aes(x=HDist.Hydrology)) + 
+  geom_histogram(aes(group=CoverType, colour=CoverType, fill=CoverType), alpha=0.3)+ggtitle('T')
+
+```
