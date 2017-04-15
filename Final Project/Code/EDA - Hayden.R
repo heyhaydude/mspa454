@@ -41,7 +41,7 @@ my.summary <- function(x,...){
 }
 
 
-forest.stats= apply(forest.orig[,1:9], 2, my.summary)
+forest.stats= apply(forest.orig[,1:10], 2, my.summary)
 
 c()
 
