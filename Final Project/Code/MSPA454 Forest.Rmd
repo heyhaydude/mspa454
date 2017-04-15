@@ -1,5 +1,13 @@
+---
+title: "MSPA454 Forest"
+author: "Matt Hayden"
+date: "4/14/2017"
+output: html_document
+---
 
-########## SETUP #########################
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+
 setwd("/Users/haydude/Development/mspa/MSPA454/Final Project/Data")
 gz = gzfile('covtype.data.gz','rt')   
 forest.orig = read.csv(gz,header=F)
@@ -9,49 +17,39 @@ forest.var.continuous = c('Elevation','Aspect','Slope', 'HDist.Hydrology', 'VDis
                           'HDist.Roadway', 'Hillshade.9am', 'Hillshade.12pm', 'Hillshade.3pm',
                           'HDist.FirePoint')
 
-# assign factor/discrete variables
-library(dplyr)
-
-#summary(forest.orig)
-
 # for speed, will perform eda on subset until ready to do a full run
 set.seed(33)
 forest = forest.orig[sample(nrow(forest.orig),20000),]
-#forest[,'SoilType15'] = NULL
-forest.numeric = forest
 forest.var.discrete.indices = grep("^Area|^SoilType|CoverType", colnames(forest))
 forest[,forest.var.discrete.indices] = as.factor(unlist(forest[,forest.var.discrete.indices]))
 
+forest.numeric = as.data.frame(sapply(forest,as.numeric))
 
-str(forest.orig)
-colnames(forest)
-barplot(table(forest$CoverType))
-table(is.na(forest)) # no missing values
-
-
-########## DATA TRANSFORMATIONS and VARIABLE MAINTENANCE #########################
-
-apply(sapply(forest,as.numeric),2,sum) #soil type 15 doesn't have any observations. so remove
-
+# add Area column
 # are any in multiple areas? NO. all belong to only one area
 idx = grep("Area", colnames(forest))
 temp = forest.numeric[,idx]
 temp[apply(temp,1,sum) > 1,]
-temp$Area = apply(temp,1,function(x) {
+temp$Z.Area = apply(temp,1,function(x) {
   return(which.max(x))
 })
-forest.numeric$Area = temp$Area
+forest.numeric$Z.Area = temp$Z.Area
+
+forest.scaled = as.data.frame(scale(forest.numeric))
+
+library(lattice)
+library(ggplot2)
+library(corrplot)
+library(MASS)
+
+```
+
+## EDA
 
 
-forest.numeric = sapply(forest,as.numeric) 
-
-str(forest)
-
-#### CONTINUOUS VARIABLES #################
+```{r eda boxplots, echo=FALSE}
 
 # boxplots
-library(ggplot2)
-forest.scaled = scale(forest) 
 st = stack(as.data.frame(forest.scaled[,forest.var.continuous]))
 ggplot(as.data.frame(st)) +
   geom_boxplot(aes(x = ind, y = values)) +
@@ -59,8 +57,10 @@ ggplot(as.data.frame(st)) +
   scale_x_discrete(name ="") + scale_y_continuous(name ="") +
   ggtitle("Figure 3 - Boxplots of Scaled Continuous Variables") 
 
-# density plots by CoverType
-library(lattice)
+```
+
+```{r eda cover density plots, echo=FALSE}
+# cover density plots
 density.plots = densityplot(~ Elevation + Aspect + Slope + HDist.Hydrology + VDist.Hydrology + 
                               HDist.Roadway + Hillshade.9am + Hillshade.12pm + Hillshade.3pm +
                               HDist.FirePoint,
@@ -69,39 +69,43 @@ density.plots = densityplot(~ Elevation + Aspect + Slope + HDist.Hydrology + VDi
                             scales= list(x="free",y="free"), xlab = '')
 plot(density.plots)
 
-# density plots by Area
-library(lattice)
+```
+
+
+```{r eda area density plots, echo=FALSE}
+#area density plots
 density.plots = densityplot(~ Elevation + Aspect + Slope + HDist.Hydrology + VDist.Hydrology + 
                               HDist.Roadway + Hillshade.9am + Hillshade.12pm + Hillshade.3pm +
                               HDist.FirePoint,
-                            data=forest.numeric, groups = Area, plot.points = FALSE, 
+                            data=forest.numeric, groups = Z.Area, plot.points = FALSE, 
                             auto.key = list(space="right",title="Class"),
                             scales= list(x="free",y="free"), xlab = '')
 plot(density.plots)
 
+```
 
-# correlations
-library(corrplot)
+```{r eda correlations, echo=FALSE}
+
 corrplot(cor(forest[, forest.var.continuous]), 
          tl.col = "black", tl.cex = 0.8, tl.srt = 45,
          cl.cex = 0.8, pch.cex = 0.8, diag = FALSE,
          type="lower",
          addCoefasPercent = TRUE, addCoef.col = TRUE,number.cex = .6) #Matt added to show correlation amounts
 
-#lda
-library(MASS)
-idx = grep("CoverType", colnames(forest))
-forest.wo.covertype = forest[,-idx]
-forest.lda = lda(CoverType ~ .,data = forest)
-#plot(forest.lda, col=forest$CoverType)
-forest.lda.pred = predict(forest.lda,data=forest.wo.covertype)
-tbl = table(forest.lda.pred$class,forest$CoverType)
-#plot(tbl)
-addmargins(tbl)
+```
 
-##### DISCRETE VARIABLES ###################################
+```{r eda lda, echo=FALSE}
 
-library(lattice)
+#idx = grep("CoverType", colnames(forest))
+#forest.lda = lda(CoverType ~ .,data = forest)
+#forest.wo.covertype = forest[,-idx]
+#forest.lda.pred = predict(forest.lda,data=forest.wo.covertype)
+#tbl = table(forest.lda.pred$class,forest$CoverType)
+#addmargins(tbl)
+
+```
+
+```{r eda soil barchart, echo=FALSE}
 idx = grep("SoilType|CoverType", colnames(forest.numeric))
 df = as.data.frame(forest.numeric[,idx])
 idx.type = grep("CoverType", colnames(df))
@@ -115,24 +119,24 @@ soil.sums = apply(df.temp,2,function(x) {
   }
   return (apply(tbl,1,sum)[2])
 })
-soil.sums
+#soil.sums
 
 soil.sums.byclass = apply(df[,-idx.type],2,function(x) {
   tbl = table(x,df$CoverType)
   tbl = tbl[seq(2,14,by=2)]
   return (tbl)
 })
-soil.sums.byclass
+#soil.sums.byclass
 
 soil.ratios = as.data.frame(t(soil.sums.byclass)/soil.sums)
 library(RColorBrewer)
 soil.ratios.m = na.omit(as.matrix(soil.ratios))
 barchart(soil.ratios.m,col=brewer.pal(7, "Pastel2"))
 
+```
 
-# AREAS
-library(lattice)
-idx = grep("Area|CoverType", colnames(forest.numeric))
+```{r eda area barchart, echo=FALSE}
+idx = grep("Area1|Area2|Area3|Area4|CoverType", colnames(forest.numeric))
 df = as.data.frame(forest.numeric[,idx])
 idx.type = grep("CoverType", colnames(df))
 
@@ -145,24 +149,19 @@ area.sums = apply(df.temp,2,function(x) {
   }
   return (apply(tbl,1,sum)[2])
 })
-area.sums
+#area.sums
 
 area.sums.byclass = apply(df[,-idx.type],2,function(x) {
   tbl = table(x,df$CoverType)
   tbl = tbl[seq(2,14,by=2)]
   return (tbl)
 })
-area.sums.byclass
+#area.sums.byclass
 
 area.ratios = as.data.frame(t(area.sums.byclass)/area.sums)
 library(RColorBrewer)
 area.ratios.m = na.omit(as.matrix(area.ratios))
 barchart(area.ratios.m,col=brewer.pal(7, "Pastel2"))
 
-
-
-
-
-#Questions
-# how often is same soil types together
+```
 
