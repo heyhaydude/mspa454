@@ -218,14 +218,21 @@ barchart(area.ratios.m,col=brewer.pal(7, "Pastel2"),xlab='',
 
 ```{r eda distance roadway, echo=FALSE}
 
-ggplot(forest.numeric, aes(x=HDist.Roadway)) + 
-  geom_histogram(aes(group=CoverType, colour=CoverType, fill=CoverType), alpha=0.7)+ggtitle('T')
+ggplot(forest, aes(x=HDist.Roadway)) + 
+  geom_histogram(aes(group=CoverType, colour=CoverType, fill=CoverType), bins=30, alpha=0.7)+
+  ggtitle('')+
+  theme(legend.title = element_blank())+
+  labs(x="Distance to Roadway",y="Count")
+
 
 ```
 
 ```{r eda distance water, echo=FALSE}
 
-ggplot(forest.numeric, aes(x=HDist.Hydrology)) + 
-  geom_histogram(aes(group=CoverType, colour=CoverType, fill=CoverType), alpha=0.7)+ggtitle('T')
+ggplot(forest, aes(x=HDist.Hydrology)) + 
+  geom_histogram(aes(group=CoverType, colour=CoverType, fill=CoverType), bins=30, alpha=0.7)+
+  ggtitle('')+
+  theme(legend.title = element_blank())+
+  labs(x="Distance to Water",y="Count")
 
 ```
