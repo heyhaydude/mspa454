@@ -353,6 +353,34 @@ barchart(area.ratios.m,col=brewer.pal(7, "Pastel2"))
 
 ```
 
+
+Next, we look at the horizontal distance to the roadway, by class. We can see that most observations in classes 5-7 are closest to the roadways."
+
+
+
+
+\newline
+\newline
+
+```{r fig.cap="Horizontal Distance to Roadway, by Class", message=FALSE, warning=FALSE}
+ggplot(forest.numeric, aes(x=HDist.Roadway)) + 
+  geom_histogram(aes(group=CoverType, colour=CoverType, fill=CoverType), alpha=0.7)+ggtitle('Horizontal Distance to Roadway, By Class')
+```
+
+
+Figure 9 shows horizontal distance to the water, by class. Again, we see that most observations in classes 5-7 are closest to a water source.
+
+
+\newline
+\newline
+
+
+```{r fig.cap="Horizontal Distance to Roadway",  message=FALSE, warning=FALSE}
+ggplot(forest.numeric, aes(x=HDist.Hydrology)) + 
+  geom_histogram(aes(group=CoverType, colour=CoverType, fill=CoverType), alpha=0.7)+ggtitle('Horizontal Distance to Water, By Class')
+```
+
+
 # Conclusion
 Our initial analysis for our forest cover type prediction problem included defining our modeling problem, doing a data quality and inventory check and performing a preliminary exploratory data analysis. The results of our data quality check showed that we had no missing data and gave us a cursory understanding of our data set. 
 
