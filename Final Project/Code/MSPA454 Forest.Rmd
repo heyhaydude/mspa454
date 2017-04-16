@@ -84,9 +84,15 @@ ggplot(as.data.frame(st)) +
 density.plots = densityplot(~ Elevation + Aspect + Slope + HDist.Hydrology + VDist.Hydrology + 
                               HDist.Roadway + Hillshade.9am + Hillshade.12pm + Hillshade.3pm +
                               HDist.FirePoint,
-                            data=forest, groups = CoverType, plot.points = FALSE, 
-                            auto.key = list(space="right",title="Class"),
-                            scales= list(x="free",y="free"), xlab = '')
+                            data=forest, 
+                            groups = CoverType, 
+                            plot.points = FALSE, 
+                            auto.key = list(space="right",title="Cover Type",cex=.6),
+                            scales= list(x="free",y="free"), 
+                            xlab = '', 
+                            ylab=list(cex=.8), 
+                            aspect="fill",
+                            par.strip.text=list(cex=.9))
 plot(density.plots)
 
 ```
@@ -97,9 +103,15 @@ plot(density.plots)
 density.plots = densityplot(~ Elevation + Aspect + Slope + HDist.Hydrology + VDist.Hydrology + 
                               HDist.Roadway + Hillshade.9am + Hillshade.12pm + Hillshade.3pm +
                               HDist.FirePoint,
-                            data=forest.numeric, groups = Z.Area, plot.points = FALSE, 
-                            auto.key = list(space="right",title="Class"),
-                            scales= list(x="free",y="free"), xlab = '')
+                            data=forest.numeric, 
+                            groups = Z.Area, 
+                            plot.points = FALSE, 
+                            auto.key = list(space="right",title="Area",cex=.6),
+                            scales= list(x="free",y="free"), 
+                            xlab = '', 
+                            ylab=list(cex=.8), 
+                            aspect="fill",
+                            par.strip.text=list(cex=.9))
 plot(density.plots)
 
 ```
