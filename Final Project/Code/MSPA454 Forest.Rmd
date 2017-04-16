@@ -25,6 +25,14 @@ forest[,forest.var.discrete.indices] = as.factor(unlist(forest[,forest.var.discr
 
 forest.numeric = as.data.frame(sapply(forest,as.numeric))
 
+forest$CoverType[forest$CoverType==1] = 'Spruce-fir'
+forest$CoverType[forest$CoverType==2] = 'Lodgepole Pine'
+forest$CoverType[forest$CoverType==3] = 'Ponderosa Pine'
+forest$CoverType[forest$CoverType==4] = 'Cottonwood-Willow'
+forest$CoverType[forest$CoverType==5] = 'Aspen'
+forest$CoverType[forest$CoverType==6] = 'Douglas-fir'
+forest$CoverType[forest$CoverType==7] = 'Krummholz'
+
 # add Area column
 # are any in multiple areas? NO. all belong to only one area
 idx = grep("Area", colnames(forest))
@@ -163,7 +171,7 @@ soil.sums.byclass = apply(df[,-idx.type],2,function(x) {
 soil.ratios = as.data.frame(t(soil.sums.byclass)/soil.sums)
 library(RColorBrewer)
 soil.ratios.m = na.omit(as.matrix(soil.ratios))
-barchart(soil.ratios.m,col=brewer.pal(7, "Pastel2"))
+barchart(soil.ratios.m,col=brewer.pal(7, "Pastel2"),xlab='')
 
 ```
 
@@ -193,20 +201,20 @@ area.sums.byclass = apply(df[,-idx.type],2,function(x) {
 area.ratios = as.data.frame(t(area.sums.byclass)/area.sums)
 library(RColorBrewer)
 area.ratios.m = na.omit(as.matrix(area.ratios))
-barchart(area.ratios.m,col=brewer.pal(7, "Pastel2"))
+barchart(area.ratios.m,col=brewer.pal(7, "Pastel2"),xlab='')
 
 ```
 
 ```{r eda distance roadway, echo=FALSE}
 
 ggplot(forest.numeric, aes(x=HDist.Roadway)) + 
-  geom_histogram(aes(group=CoverType, colour=CoverType, fill=CoverType), alpha=0.3)+ggtitle('T')
+  geom_histogram(aes(group=CoverType, colour=CoverType, fill=CoverType), alpha=0.7)+ggtitle('T')
 
 ```
 
 ```{r eda distance water, echo=FALSE}
 
 ggplot(forest.numeric, aes(x=HDist.Hydrology)) + 
-  geom_histogram(aes(group=CoverType, colour=CoverType, fill=CoverType), alpha=0.3)+ggtitle('T')
+  geom_histogram(aes(group=CoverType, colour=CoverType, fill=CoverType), alpha=0.7)+ggtitle('T')
 
 ```
