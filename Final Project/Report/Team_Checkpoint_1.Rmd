@@ -148,7 +148,7 @@ Frequency by Class") + geom_bar(stat = "identity", fill="#1f78b4", width=.5,
 ## Continuous Variables
 
 
-Table 3 includes some standard statistical measures of central tendency and variation for our continuous variables. 
+Table 3 includes some standard statistical measures of central tendency and variation for our continuous variables, for investigation of unusual values. We would first like to note that an Aspect value of 0 and 360 would both be equal to true north, so we should standardize that value. Next, we will point out that while a negative distance value for VDist.Hydrology may appear to be an error, it is in fact reasonable due to it being a vertical measurement from differing altitudes, making a negative distance possible. Our Hillshade values fall into the hillshade index integer value range of 0 to 255. Also, our horizontal distances all have minimum values of 0.
 
 
 ```{r fig.cap="Summary Statistics"}
@@ -230,7 +230,7 @@ ggplot(as.data.frame(st)) +
 ```
 
 \newpage
-Our data exploration is informed by our statistical problem, which is one of multiclass classification. We will therefore be interested in exploring our predictors by each of our classes. The density plots below superimpose the density estimates for each variable by class, 1-7. We note that our variable Aspect shows multimodel distributions, indicating that it may have more than one grouping included. We will also note that several of our variables show distinct distributions by class, indicating that they would serve as a good predictor.
+Our data exploration is informed by our statistical problem, which is one of multiclass classification. We will therefore be interested in exploring our predictors by each of our classes. The density plots below superimpose the density estimates for each variable by class, 1-7. We note that our variable Aspect shows multimodel distributions, indicating that it may have more than one grouping included. This is due to the value of 0 and 360 both being equal to true north, which we will have to address in data preparation.  We will also note that several of our variables show distinct distributions by class, indicating that they would serve as a good predictor.
 \newline
 \newline
 
@@ -253,7 +253,7 @@ plot(density.plots)
 
 
 \newpage
-Figure 4 shows density plots by each of the four wilderness areas.
+Figure 4 shows density plots by each of the four wilderness areas.Several variable values appear to be distinguishable by wilderness area. 
 \newline
 \newline
 
@@ -386,7 +386,7 @@ barchart(soil.ratios.m,col=brewer.pal(7, "Pastel2"),xlab='',
 ```
 
 \newpage
-Next, we look at the horizontal distance to the roadway, by class. We can see that most observations in classes 5-7 are closest to the roadways."
+Next, we look at the horizontal distance to the roadway, by class. We can see that most observations in classes 5-7, Aspen, Cottonwood-Willow and Douglas-fir are closest to the roadways.
 \newline
 \newline
 
@@ -419,7 +419,7 @@ ggplot(forest, aes(x=HDist.Hydrology)) +
 Our initial analysis for our forest cover type prediction problem included defining our modeling problem, doing a data quality and inventory check and performing a preliminary exploratory data analysis. The results of our data quality check showed that we had no missing data and gave us a cursory understanding of our data set. 
 
 
-Our preliminary exploratory analysis revealed some potentially useful predictors and helped us to understand the relationships in our data. Our next step will be to build a few exploratory models in order to gain further insights into predictors we can use in our modeling. 
+Our preliminary exploratory analysis revealed some potentially useful predictors and helped us to understand the relationships in our data. Our next step will be to build a few exploratory models in order to gain further insights into predictors we can use in our modeling and to prepare our data for modeling.
 
 <!--
 
