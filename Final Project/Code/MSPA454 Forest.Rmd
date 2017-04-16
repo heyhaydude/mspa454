@@ -25,6 +25,8 @@ forest[,forest.var.discrete.indices] = as.factor(unlist(forest[,forest.var.discr
 
 forest.numeric = as.data.frame(sapply(forest,as.numeric))
 
+covertype.names = c('Spruce-fir','Lodgepole Pine','Ponderosa Pine','Cottonwood-Willow','Aspen','Douglas-fir','Krummholz')
+
 forest$CoverType[forest$CoverType==1] = 'Spruce-fir'
 forest$CoverType[forest$CoverType==2] = 'Lodgepole Pine'
 forest$CoverType[forest$CoverType==3] = 'Ponderosa Pine'
@@ -171,7 +173,11 @@ soil.sums.byclass = apply(df[,-idx.type],2,function(x) {
 soil.ratios = as.data.frame(t(soil.sums.byclass)/soil.sums)
 library(RColorBrewer)
 soil.ratios.m = na.omit(as.matrix(soil.ratios))
-barchart(soil.ratios.m,col=brewer.pal(7, "Pastel2"),xlab='')
+barchart(soil.ratios.m,col=brewer.pal(7, "Pastel2"),xlab='',
+         key=list(space="right",
+                  lines=list(col=brewer.pal(7, "Pastel2"),lwd=3),
+                  text=list(covertype.names)
+))
 
 ```
 
@@ -201,7 +207,12 @@ area.sums.byclass = apply(df[,-idx.type],2,function(x) {
 area.ratios = as.data.frame(t(area.sums.byclass)/area.sums)
 library(RColorBrewer)
 area.ratios.m = na.omit(as.matrix(area.ratios))
-barchart(area.ratios.m,col=brewer.pal(7, "Pastel2"),xlab='')
+barchart(area.ratios.m,col=brewer.pal(7, "Pastel2"),xlab='',
+         key=list(space="right",
+                  lines=list(col=brewer.pal(7, "Pastel2"),lwd=3),
+                  text=list(covertype.names)
+                  )
+)
 
 ```
 
