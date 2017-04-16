@@ -41,6 +41,17 @@ forest[,forest.var.discrete.indices] = as.factor(unlist(forest[,forest.var.discr
 
 forest.numeric = as.data.frame(sapply(forest,as.numeric))
 
+covertype.names = c('Spruce-fir','Lodgepole Pine','Ponderosa Pine','Cottonwood-Willow','Aspen','Douglas-fir','Krummholz')
+
+forest$CoverType[forest$CoverType==1] = 'Spruce-fir'
+forest$CoverType[forest$CoverType==2] = 'Lodgepole Pine'
+forest$CoverType[forest$CoverType==3] = 'Ponderosa Pine'
+forest$CoverType[forest$CoverType==4] = 'Cottonwood-Willow'
+forest$CoverType[forest$CoverType==5] = 'Aspen'
+forest$CoverType[forest$CoverType==6] = 'Douglas-fir'
+forest$CoverType[forest$CoverType==7] = 'Krummholz'
+
+
 # add Area column
 # are any in multiple areas? NO. all belong to only one area
 idx = grep("Area", colnames(forest))
@@ -137,7 +148,7 @@ Frequency by Class") + geom_bar(stat = "identity", fill="#1f78b4", width=.5,
 ## Continuous Variables
 
 
-Table 3 includes some standard statistical measures of central tendency and variation for our continuous variables.
+Table 3 includes some standard statistical measures of central tendency and variation for our continuous variables. 
 
 
 ```{r fig.cap="Summary Statistics"}
@@ -227,9 +238,15 @@ Our data exploration is informed by our statistical problem, which is one of mul
 density.plots = densityplot(~ Elevation + Aspect + Slope + HDist.Hydrology + VDist.Hydrology + 
                               HDist.Roadway + Hillshade.9am + Hillshade.12pm + Hillshade.3pm +
                               HDist.FirePoint,
-                            data=forest, groups = CoverType, plot.points = FALSE, 
-                            auto.key = list(space="right",title="Class"),
-                            scales= list(x="free",y="free"), xlab = '')
+                            data=forest, 
+                            groups = CoverType, 
+                            plot.points = FALSE, 
+                            auto.key = list(space="right",title="Cover Type",cex=.6),
+                            scales= list(x="free",y="free"), 
+                            xlab = '', 
+                            ylab=list(cex=.8), 
+                            aspect="fill",
+                            par.strip.text=list(cex=.9))
 plot(density.plots)
 ```
 
@@ -244,9 +261,15 @@ Figure 4 shows density plots by each of the four wilderness areas.
 density.plots = densityplot(~ Elevation + Aspect + Slope + HDist.Hydrology + VDist.Hydrology + 
                               HDist.Roadway + Hillshade.9am + Hillshade.12pm + Hillshade.3pm +
                               HDist.FirePoint,
-                            data=forest.numeric, groups = Z.Area, plot.points = FALSE, 
-                            auto.key = list(space="right",title="Class"),
-                            scales= list(x="free",y="free"), xlab = '')
+                            data=forest.numeric, 
+                            groups = Z.Area, 
+                            plot.points = FALSE, 
+                            auto.key = list(space="right",title="Area",cex=.6),
+                            scales= list(x="free",y="free"), 
+                            xlab = '', 
+                            ylab=list(cex=.8), 
+                            aspect="fill",
+                            par.strip.text=list(cex=.9))
 plot(density.plots)
 ```
 
@@ -312,7 +335,11 @@ soil.sums.byclass = apply(df[,-idx.type],2,function(x) {
 soil.ratios = as.data.frame(t(soil.sums.byclass)/soil.sums)
 library(RColorBrewer)
 soil.ratios.m = na.omit(as.matrix(soil.ratios))
-barchart(soil.ratios.m, col=brewer.pal(7, "Pastel2"))
+barchart(soil.ratios.m,col=brewer.pal(7, "Pastel2"),xlab='',
+         key=list(space="right",
+                  lines=list(col=brewer.pal(7, "Pastel2"),lwd=3),
+                  text=list(covertype.names)
+))
 
 ```
 
@@ -349,36 +376,42 @@ area.sums.byclass = apply(df[,-idx.type],2,function(x) {
 area.ratios = as.data.frame(t(area.sums.byclass)/area.sums)
 library(RColorBrewer)
 area.ratios.m = na.omit(as.matrix(area.ratios))
-barchart(area.ratios.m,col=brewer.pal(7, "Pastel2"))
+barchart(soil.ratios.m,col=brewer.pal(7, "Pastel2"),xlab='',
+         key=list(space="right",
+                  lines=list(col=brewer.pal(7, "Pastel2"),lwd=3),
+                  text=list(covertype.names)
+))
 
 ```
 
-
+\newpage
 Next, we look at the horizontal distance to the roadway, by class. We can see that most observations in classes 5-7 are closest to the roadways."
-
-
-
-
 \newline
 \newline
 
-```{r fig.cap="Horizontal Distance to Roadway, by Class", message=FALSE, warning=FALSE}
-ggplot(forest.numeric, aes(x=HDist.Roadway)) + 
-  geom_histogram(aes(group=CoverType, colour=CoverType, fill=CoverType), alpha=0.7)+ggtitle('Horizontal Distance to Roadway, By Class')
+
+```{r}
+ggplot(forest, aes(x=HDist.Roadway)) + 
+  geom_histogram(aes(group=CoverType, colour=CoverType, fill=CoverType), bins=30, alpha=0.7)+
+  ggtitle('')+
+  theme(legend.title = element_blank())+
+  labs(x="Distance to Roadway",y="Count")
 ```
 
-
+\newpage
 Figure 9 shows horizontal distance to the water, by class. Again, we see that most observations in classes 5-7 are closest to a water source.
-
-
 \newline
 \newline
 
 
-```{r fig.cap="Horizontal Distance to Roadway",  message=FALSE, warning=FALSE}
-ggplot(forest.numeric, aes(x=HDist.Hydrology)) + 
-  geom_histogram(aes(group=CoverType, colour=CoverType, fill=CoverType), alpha=0.7)+ggtitle('Horizontal Distance to Water, By Class')
+```{r}
+ggplot(forest, aes(x=HDist.Hydrology)) + 
+  geom_histogram(aes(group=CoverType, colour=CoverType, fill=CoverType), bins=30, alpha=0.7)+
+  ggtitle('')+
+  theme(legend.title = element_blank())+
+  labs(x="Distance to Water",y="Count")
 ```
+
 
 
 # Conclusion
