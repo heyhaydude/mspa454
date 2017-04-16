@@ -159,6 +159,7 @@ my.summary <- function(x,...){
     median=median(x, ...),
     min=min(x, ...),
     max=max(x,...),
+    nmiss=sum(is.na(x,...)),
     type="Continuous")
 }
 
