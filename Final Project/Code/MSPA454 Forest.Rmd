@@ -236,3 +236,41 @@ ggplot(forest, aes(x=HDist.Hydrology)) +
   labs(x="Distance to Water",y="Count")
 
 ```
+
+```{r hierarchical clustering}
+
+# this proved to be fruitless. 
+
+idxs = grep("Soil", colnames(forest.numeric))
+temp = data.matrix(forest[,idxs])
+rownames(temp) = forest$CoverType
+clusters = hclust(dist(temp), method = 'average')
+
+clusterCut = cutree(clusters, 40)
+
+addmargins(table(forest$CoverType,clusterCut))
+plot(table(forest$CoverType,clusterCut))
+
+idxs = grep("Soil", colnames(forest.numeric))
+temp = data.matrix(forest[,idxs])
+rownames(temp) = forest$CoverType
+matches = which(temp==1, arr.ind = T)
+temp[matches] = colnames(temp)[matches[,2]]
+
+temp.soil = table(temp,rep(forest$CoverType,40))
+temp.soil = temp.soil[2:nrow(temp.soil),]
+temp.soil = t(temp.soil)
+addmargins(temp.soil)
+addmargins(table(forest$CoverType,clusterCut))
+
+
+```
+
+```{r pca, echo=FALSE}
+idxs = grep("Soil", colnames(forest.numeric))
+temp = df[,idxs.numeric[,idxs]]
+idx = grep('price',colnames(temp))
+temp = temp[,-idx]
+df.pcr = prcomp(temp, scale = T)
+
+```
