@@ -415,7 +415,8 @@ ggplot(forest, aes(x=HDist.Hydrology)) +
   labs(x="Distance to Water",y="Count")
 ```
 
-# Transformations
+
+# Data Preparation- Transformations
 
 The distributions for Hillshade.12pm and Vdist.Hydrology were noticeably skewed in the boxplots above, so we create log transformations of these variables for later use in our models.
 
@@ -423,9 +424,10 @@ The distributions for Hillshade.12pm and Vdist.Hydrology were noticeably skewed 
 # transform Hillshade.12pm and Vdist.Hydrology
 forest.new= forest.orig
 forest.new$log.Hillshade.12pm = log(forest.new$Hillshade.12pm)
+forest.new$VDist.Hydrology = log(forest.new$VDist.Hydrology + 180)
 
 ```
-
+# Data Preparation- Splitting the Data
 
 # Conclusion
 Our initial analysis for our forest cover type prediction problem included defining our modeling problem, doing a data quality and inventory check and performing a preliminary exploratory data analysis. The results of our data quality check showed that we had no missing data and gave us a cursory understanding of our data set. 
