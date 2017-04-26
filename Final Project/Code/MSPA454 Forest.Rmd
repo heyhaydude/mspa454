@@ -268,9 +268,9 @@ addmargins(table(forest$CoverType,clusterCut))
 
 ```{r pca, echo=FALSE}
 idxs = grep("Soil", colnames(forest.numeric))
-temp = df[,idxs.numeric[,idxs]]
-idx = grep('price',colnames(temp))
-temp = temp[,-idx]
-df.pcr = prcomp(temp, scale = T)
+temp = forest.numeric[,idxs]
+soil.pca = prcomp(temp, scale = F)
+plot(summary(soil.pca)$importance[3,])
+summary(soil.pca)$importance[3,]
 
 ```
