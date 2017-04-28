@@ -433,6 +433,37 @@ The distributions for Hillshade.12pm and Vdist.Hydrology were noticeably skewed 
 forest.new= forest.orig
 forest.new$trans.Hillshade.12pm = log(forest.new$Hillshade.12pm)
 forest.new$trans.VDist.Hydrology = preProcess(forest.new$VDist.Hydrology, method = "YeoJohnson")
+forest.new$trans.LDist.Hydrology <- sqrt(forest.new$VDist.Hydrology^2 + forest.new$HDist.Hydrology^2) 
+
+
+# Soil Type to Climate Zone Mapping
+forest.new$trans.zone27 <- rowSums(forest.new[,c("SoilType1", "SoilType2","SoilType3","SoilType4", "SoilType5","SoilType6")])
+forest.new$trans.zone35 <- rowSums(forest.new[,c("SoilType7", "SoilType8")])
+forest.new$trans.zone42 <- forest.new$SoilType9
+forest.new$trans.zone47 <- rowSums(forest.new[,c("SoilType10", "SoilType11","SoilType12","SoilType13")])
+forest.new$trans.zone51 <- rowSums(forest.new[,c("SoilType14", "SoilType15")])
+forest.new$trans.zone61 <- rowSums(forest.new[,c("SoilType16", "SoilType17")])
+forest.new$trans.zone67 <- forest.new$SoilType18
+forest.new$trans.zone71 <- rowSums(forest.new[,c("SoilType19", "SoilType20","SoilType21")])
+forest.new$trans.zone72 <- rowSums(forest.new[,c("SoilType22", "SoilType23")])
+forest.new$trans.zone77 <- rowSums(forest.new[,c("SoilType24", "SoilType25","SoilType26","SoilType27", "SoilType28",
+  "SoilType29", "SoilType30","SoilType31","SoilType32", "SoilType33", "SoilType34")])
+forest.new$trans.zone87 <- rowSums(forest.new[,c("SoilType35", "SoilType36","SoilType37","SoilType38", "SoilType39","SoilType40")])
+
+#PCA
+# Matt R: Not sure iff PCA is going to make sense or provide value for SoilType categorization.
+# Would need to choose SoilType, Climate Zone, or PCA...but not all of them
+idxs = grep("Soil", colnames(forest.numeric))
+temp = forest.new[,idxs]
+soil.pca = prcomp(temp, scale = F)
+forest.new <- cbind(forest.new, soil.pca$x[,1:16]) #90.7% of important
+#plot(summary(soil.pca)$importance[3,])
+#summary(soil.pca)$importance[3,]
+#summary(soil.pca)
+
+
+
+
 
 ```
 # Data Preparation- Splitting the Data
@@ -443,6 +474,21 @@ idxs_pca = grep("pca", colnames(forest.new))
 forest.pca= forest[,idxs_pca]
 idxs_buck = grep("buck", colnames(forest.new))
 forest.bucketing= forest[,idxs_buck]
+
+
+
+#Training/Test Splitting
+set.seed(330)
+fraction.train <- .7 # Enter Training Set Size
+fraction.valid <- 1 - fraction.train
+size.train <- fraction.train*nrow(forest.new)
+size.valid <- nrow(forest.new) - size.train
+indices.train <- sort(sample(seq_len(nrow(forest.new)), size=size.train))
+indices.valid <- setdiff(seq_len(nrow(forest.new)), indices.train)
+df.train <- forest.new[indices.train,]
+df.valid <- forest.new[indices.valid,]
+
+
 ```
 
 # Conclusion
