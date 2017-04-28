@@ -68,6 +68,7 @@ library(lattice)
 library(ggplot2)
 library(corrplot)
 library(MASS)
+library(caret)
 
 ```
 
@@ -415,6 +416,13 @@ ggplot(forest, aes(x=HDist.Hydrology)) +
   labs(x="Distance to Water",y="Count")
 ```
 
+Figure 10 shows the contrasting relationship between Hillshade_9am and Hillshade_3pm.
+
+```{r}
+ggplot(forest, aes(x=Aspect)) + 
+    geom_point(aes(y=Hillshade_9am, color="Hillshade_9am"), alpha=.1) +
+    geom_point(aes(y=Hillshade_3pm, color="Hillshade_3pm"), alpha=.1)
+```
 
 # Data Preparation- Transformations
 
@@ -423,11 +431,19 @@ The distributions for Hillshade.12pm and Vdist.Hydrology were noticeably skewed 
 ```{r}
 # transform Hillshade.12pm and Vdist.Hydrology
 forest.new= forest.orig
-forest.new$log.Hillshade.12pm = log(forest.new$Hillshade.12pm)
-forest.new$VDist.Hydrology = log(forest.new$VDist.Hydrology + 180)
+forest.new$trans.Hillshade.12pm = log(forest.new$Hillshade.12pm)
+forest.new$trans.VDist.Hydrology = preProcess(forest.new$VDist.Hydrology, method = "YeoJohnson")
 
 ```
 # Data Preparation- Splitting the Data
+```{r}
+idxs_trans = grep("trans", colnames(forest.new))
+forest.transforms= forest[,idxs_trans]
+idxs_pca = grep("pca", colnames(forest.new))
+forest.pca= forest[,idxs_pca]
+idxs_buck = grep("buck", colnames(forest.new))
+forest.bucketing= forest[,idxs_buck]
+```
 
 # Conclusion
 Our initial analysis for our forest cover type prediction problem included defining our modeling problem, doing a data quality and inventory check and performing a preliminary exploratory data analysis. The results of our data quality check showed that we had no missing data and gave us a cursory understanding of our data set. 
