@@ -457,6 +457,15 @@ forest.new$trans.zone77 <- rowSums(forest.new[,c("SoilType24", "SoilType25","Soi
   "SoilType29", "SoilType30","SoilType31","SoilType32", "SoilType33", "SoilType34")])
 forest.new$trans.zone87 <- rowSums(forest.new[,c("SoilType35", "SoilType36","SoilType37","SoilType38", "SoilType39","SoilType40")])
 
+
+```
+
+Furthermore, we attempt to reduce the variable complexity of 40 soil variables with principal component analysis. We found that 90.7% of the variance can be explained with 16 variables instead of 40. This may help with modeling efforts the rely on reducing model complexity.
+
+The correlation plot above also shows high correlations between Hillshade, Aspect, and Slope. By performing PCA analysis we are able to reduce 5 variables down to 3, with 0 correlation and explaining 99.7% of the variance. This is highly likely to be useful for models that need to minimize highly correlated variables.
+
+```{r}
+
 #PCA
 # Matt R: Not sure iff PCA is going to make sense or provide value for SoilType categorization.
 # Would need to choose SoilType, Climate Zone, or PCA...but not all of them
@@ -468,8 +477,22 @@ forest.new <- cbind(forest.new, soil.pca$x[,1:16]) #90.7% of important
 #summary(soil.pca)$importance[3,]
 #summary(soil.pca)
 
+idxs = grep("Aspect|Hillshade|Slope", colnames(forest.numeric))
+temp = forest.new[,idxs]
+shadeslope.pca = prcomp(temp, scale = F)
+shadeslope.pca.x = shadeslope.pca$x
+colnames(shadeslope.pca.x) = c('shade.pca.pc1','shade.pca.pc2','shade.pca.pc3','shade.pca.pc4','shade.pca.pc5')
+forest.new <- cbind(forest.new, shadeslope.pca.x[,1:3]) #99.7% of important
+#plot(summary(shadeslope.pca)$importance[3,])
+#summary(shadeslope.pca)$importance[3,]
+#summary(shadeslope.pca)
 
-
+idxs = grep("pca|PC", colnames(forest.new))
+corrplot(cor(forest.new[,idxs]), 
+         tl.col = "black", tl.cex = 0.8, tl.srt = 45,
+         cl.cex = 0.8, pch.cex = 0.8, diag = FALSE,
+         type="lower",
+         addCoefasPercent = TRUE, addCoef.col = TRUE,number.cex = .6) #Matt added to show correlation amounts
 
 
 ```
@@ -519,6 +542,8 @@ idxs = grep("^PC",forest.modeling.colnames)
 forest.modeling.colnames[idxs] = paste("pca.soil.",forest.transforms.colnames[idxs],sep = "")
 colnames(forest.train) = forest.modeling.colnames
 colnames(forest.valid) = forest.modeling.colnames
+
+forest.modeling.colidxs = grep("^orig.Elevation|^orig.Aspect|^orig.Slope|^orig|^VDist|^Hillshade|^Area|^SoilType",forest.modeling.colnames)
 
 ```
 
