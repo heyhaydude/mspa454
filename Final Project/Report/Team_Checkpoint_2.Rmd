@@ -497,6 +497,15 @@ corrplot(cor(forest.new[,idxs]),
 
 ```
 
+Several of the multi-classification models we will employ rely on accounting for variables with near zero variance. Neural networks, logistic regression and KNN models prefer that no near zero variance variables are in the dataset. In this dataset, 32 of the 40 soil variables have near zero variance. We will look to principal component analysis, combining predictors, and removing predictors to remedy this issue. 
+
+```{r}
+
+idxs.nzv = nzv(forest.new)
+#colnames(forest.new)[idxs.nzv]
+
+```
+
 ## Data Preparation- Splitting the Data
 
 ```{r}
