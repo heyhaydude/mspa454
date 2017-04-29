@@ -494,8 +494,8 @@ size.train <- fraction.train*nrow(forest.new)
 size.valid <- nrow(forest.new) - size.train
 indices.train <- sort(sample(seq_len(nrow(forest.new)), size=size.train))
 indices.valid <- setdiff(seq_len(nrow(forest.new)), indices.train)
-df.train <- forest.new[indices.train,]
-df.valid <- forest.new[indices.valid,]
+forest.train <- forest.new[indices.train,]
+forest.valid <- forest.new[indices.valid,]
 
 
 ```
@@ -506,9 +506,51 @@ Our initial analysis for our forest cover type prediction problem included defin
 
 Our preliminary exploratory analysis revealed some potentially useful predictors and helped us to understand the relationships in our data. Our next step will be to build a few exploratory models in order to gain further insights into predictors we can use in our modeling and to prepare our data for modeling.
 
-<!--
 
 # Predictive Modeling: Methods and Results
+
+```{r model prep}
+
+forest.transforms.colnames = colnames(forest.train)
+forest.modeling.colnames = forest.transforms.colnames
+idxs = grep("^Elevation|^Aspect|^Slope|^HDist|^VDist|^Hillshade|^Area|^SoilType",forest.modeling.colnames)
+forest.modeling.colnames[idxs] = paste("orig.",forest.transforms.colnames[idxs],sep = "")
+idxs = grep("^PC",forest.modeling.colnames)
+forest.modeling.colnames[idxs] = paste("pca.soil.",forest.transforms.colnames[idxs],sep = "")
+colnames(forest.train) = forest.modeling.colnames
+colnames(forest.valid) = forest.modeling.colnames
+
+```
+
+```{r random forest}
+
+```
+
+```{r neural network}
+
+```
+
+```{r svm}
+
+```
+
+```{r knn}
+
+```
+
+```{r logistic regression}
+
+```
+
+```{r discriminant analysis}
+
+```
+
+```{r ensemble}
+
+```
+
+<!--
 
 # Comparison of Results
 
