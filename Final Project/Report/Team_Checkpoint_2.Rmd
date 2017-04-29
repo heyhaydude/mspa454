@@ -478,7 +478,7 @@ forest.new <- cbind(forest.new, soil.pca$x[,1:16]) #90.7% of important
 
 ```{r}
 idxs_trans = grep("trans", colnames(forest.new))
-forest.transforms= forest[,idxs_trans]
+forest.transforms= forest.new[,idxs_trans]
 idxs_pca = grep("pca", colnames(forest.new))
 forest.pca= forest[,idxs_pca]
 idxs_buck = grep("buck", colnames(forest.new))
