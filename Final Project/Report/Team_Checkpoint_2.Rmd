@@ -554,9 +554,51 @@ colnames(forest.valid) = forest.modeling.colnames
 
 forest.modeling.colidxs = grep("^orig.Elevation|^orig.Aspect|^orig.Slope|^orig|^VDist|^Hillshade|^Area|^SoilType",forest.modeling.colnames)
 
+forest.train$CoverType = as.factor(forest.train$CoverType)
+forest.valid$CoverType = as.factor(forest.valid$CoverType)
+idxs = grep("orig.Area|orig.SoilType|CoverType|trans.zone",colnames(forest.train))
+forest.train[,idxs] = lapply(forest.train[,idxs], as.factor)
+
 ```
 
 ```{r random forest}
+library(randomForest)
+library(caret)
+
+library(doMC)
+registerDoMC(cores = 5)
+
+# temp make training set smaller.
+set.seed(444)
+forest.train = forest.train[sample(nrow(forest.train), 20000, replace = FALSE),]
+
+# setup
+preprocess = c("zv")
+control = trainControl(method="cv", number=10)
+metric = "Kappa"
+set.seed(444)
+mtry = floor(sqrt(ncol(forest.train) - 1))
+tunegrid = expand.grid(mtry=mtry, ntree=c(500,1000,1500))
+
+idxs = grep("^orig.Elevation|^orig.Aspect|^orig.Slope|^orig|^VDist|^Hillshade|^Area|^SoilType",colnames(forest.train))
+form = sapply(colnames(forest.train[,idxs]),function(x) {
+  return (paste(x,' + '))
+})
+form = trimws(paste(unlist(form), collapse=''))
+form = trimws(gsub('\\+$','',form))
+form = paste('CoverType ~ ',form)
+form = as.formula(form)
+
+# model.rf <- train(form, 
+#                   data      = forest.train, 
+#                   method    = "rf", 
+#                   metric    = metric, 
+#                   tuneGrid  = tunegrid, 
+#                   trControl = control,
+#                   preProc   = preprocess)
+
+df.rf = randomForest(CoverType~.,data=forest.train,mtry=9,importance=TRUE)
+varImpPlot(df.rf, main='Variable Importance from Random Forest', cex=0.8)
 
 ```
 
