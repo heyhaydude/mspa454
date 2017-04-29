@@ -439,7 +439,7 @@ The distributions for Hillshade.12pm and Vdist.Hydrology were noticeably skewed 
 # transform Hillshade.12pm and Vdist.Hydrology
 forest.new= forest.orig
 forest.new$trans.Hillshade.12pm = log(forest.new$Hillshade.12pm)
-forest.new$trans.VDist.Hydrology = preProcess(forest.new$VDist.Hydrology, method = "YeoJohnson")
+#forest.new$trans.VDist.Hydrology = preProcess(forest.new$VDist.Hydrology, method = "YeoJohnson")
 forest.new$trans.LDist.Hydrology <- sqrt(forest.new$VDist.Hydrology^2 + forest.new$HDist.Hydrology^2) 
 
 
