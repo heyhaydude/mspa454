@@ -502,8 +502,8 @@ corrplot(cor(forest.new[,idxs]),
 ```{r}
 idxs_trans = grep("trans", colnames(forest.new))
 forest.transforms= forest.new[,idxs_trans]
-idxs_pca = grep("pca", colnames(forest.new))
-forest.pca= forest[,idxs_pca]
+idxs_pca = grep("PC|shade.pca", colnames(forest.new))
+forest.pca= forest.new[,idxs_pca]
 idxs_buck = grep("buck", colnames(forest.new))
 forest.bucketing= forest[,idxs_buck]
 
