@@ -1,5 +1,5 @@
 ---
-title: "Team Checkpoint 1"
+title: "Team Checkpoint 2"
 author: "Annie Condon, Matt Hayden, Matt Robertson, Yvette Gonzalez"
 subtitle: Forest Cover Team B
 output:
@@ -69,7 +69,7 @@ library(ggplot2)
 library(corrplot)
 library(MASS)
 library(caret)
-
+library(car)
 ```
 
 \newpage
@@ -98,15 +98,22 @@ colnames(ct.df) <- c("Cover Type", "Number of Observations")
 knitr::kable(ct.df, caption = "Cover Type Classes", format="pandoc") 
 ```
 
+Most classification algortihms can be applied, either directly or through slight modifications, to multiclass classification problems. Two different approaches exists for multi-class classification: algorithms that naturally permit the use of more than two classes and those that first reduce a multi-class problem to a collection of binary-class problems and then combine their predictions in various ways. The following is a list of algorithms we will consider for our problem:
 
+*Discriminant Analysis* 
+*Logistic Regression* 
+*K-Nearest Neighbors*
+*Random Forests*
+*Neural Network* 
+*Support Vector Machine*
 
-Several algorithms have been developed to solve multiclass classification problems. The possible algorithms we will consider for our problem are: neural networks, k-nearest neighbors, random forest and support vector machines. 
+We will use ‘Kappa’ as a metric to optimize for tuning our parameters because this metric can improve the quality of the model for problems where there are a low percentage of samples in one class.
 
+## Evaluating Classification Models
 
-We will evaluate our models using classification accuracy. 
+We will evaluate a number of different models by applying them to a holdout 'test' dataset and assessing their performance. Because there is an imbalance in the classes to be predicted, we will consider alternatives to 'accuracy' to evaluate our final models. Using accuracy only to evaluate models can perform poorly in predicting the less frequent classes. We will instead look at two metrics that handle class imbalance: balanced accuracy and f1 score. Balanced accuracy is (sensitivity+specificity)/2, or the average accuracy over all classes. F1 Score is *precision*recall/(precision + recall) ,the weighted average of precision and recall. The precision measures the accuracy of a predicted positive outcome and recall (sensitivity) measures the strength of the model to predict a positive outcome Therefore, this score takes both false positives and false negatives into account.    
 
 # The Data
-
 
 Our data set consists of 581,012 observations of the 30 x 30 meter cells of forest and 54 features associated with each cell. The features are derived from 12 attributes, with area and soil type binarized so that there are 4 binary area designators and 40 binary soil type designators. There is no missing data. The feature descriptions are listed in the table below:
 
@@ -416,15 +423,15 @@ ggplot(forest, aes(x=HDist.Hydrology)) +
   labs(x="Distance to Water",y="Count")
 ```
 
-Figure 10 shows the contrasting relationship between Hillshade_9am and Hillshade_3pm.
+Figure 10 shows the contrasting relationship between Hillshade.9am and Hillshade.3pm.
 
 ```{r}
 ggplot(forest, aes(x=Aspect)) + 
-    geom_point(aes(y=Hillshade_9am, color="Hillshade_9am"), alpha=.1) +
-    geom_point(aes(y=Hillshade_3pm, color="Hillshade_3pm"), alpha=.1)
+    geom_point(aes(y=Hillshade.9am, color="Hillshade.9am"), alpha=.1) +
+    geom_point(aes(y=Hillshade.3pm, color="Hillshade.3pm"), alpha=.1)
 ```
 
-# Data Preparation- Transformations
+## Data Preparation- Transformations
 
 The distributions for Hillshade.12pm and Vdist.Hydrology were noticeably skewed in the boxplots above, so we create log transformations of these variables for later use in our models.
 
@@ -466,7 +473,9 @@ forest.new <- cbind(forest.new, soil.pca$x[,1:16]) #90.7% of important
 
 
 ```
-# Data Preparation- Splitting the Data
+
+## Data Preparation- Splitting the Data
+
 ```{r}
 idxs_trans = grep("trans", colnames(forest.new))
 forest.transforms= forest[,idxs_trans]
