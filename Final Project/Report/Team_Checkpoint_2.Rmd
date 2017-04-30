@@ -433,7 +433,7 @@ ggplot(forest, aes(x=Aspect)) +
 
 ## Data Preparation- Transformations
 
-The distribution for Hillshade.12pm was noticeably skewed in the boxplots above, so we create a log transformation of Hillshade.12pm and  for later use in our models. Additionally we created an interaction variable using Vist.Hydrology and HDistHydrology.
+The distribution for Hillshade.12pm was noticeably skewed in the boxplots above, so we create a log transformation of Hillshade.12pm and  for later use in our models. Additionally we created an interaction variable using Vist.Hydrology and HDistHydrology. A linear distance variable was also created using the vertical and horizontal distance to hydrology variables.Additionally, soil types were grouped into Climatic and Geologic zones as a potential means to reduce the amount of SoilType variables used for various modeling techniques.
 
 ```{r}
 # transform Hillshade.12pm and Vdist.Hydrology
@@ -460,23 +460,37 @@ forest.new$trans.zone87 <- rowSums(forest.new[,c("SoilType35", "SoilType36","Soi
 
 ```
 
-Furthermore, we attempt to reduce the variable complexity of 40 soil variables with principal component analysis. We found that 90.7% of the variance can be explained with 16 variables instead of 40. This may help with modeling efforts the rely on reducing model complexity.
+Furthermore, we attempt to reduce the variable complexity of 40 soil variables with principal component analysis. We found that 90.7% of the variance can be explained with 16 variables instead of 40. Similar analysis using 6 of 10 Soil Zones explains 99.2% of variation. This may help with modeling efforts the rely on reducing model complexity.
 
 The correlation plot above also shows high correlations between Hillshade, Aspect, and Slope. By performing PCA analysis we are able to reduce 5 variables down to 3, with 0 correlation and explaining 99.7% of the variance. This is highly likely to be useful for models that need to minimize highly correlated variables.
 
 ```{r}
-
 #PCA
-# Matt R: Not sure iff PCA is going to make sense or provide value for SoilType categorization.
-# Would need to choose SoilType, Climate Zone, or PCA...but not all of them
-idxs = grep("Soil", colnames(forest.numeric))
-temp = forest.new[,idxs]
-soil.pca = prcomp(temp, scale = F)
-forest.new <- cbind(forest.new, soil.pca$x[,1:16]) #90.7% of important
-#plot(summary(soil.pca)$importance[3,])
-#summary(soil.pca)$importance[3,]
-#summary(soil.pca)
+idxs.soil = grep("Soil", colnames(forest.new))
+temp.soil = forest.new[,idxs.soil]
+soil.pca = prcomp(temp.soil, scale = F)
+soil.pca.x = soil.pca$x
+colnames(soil.pca.x) <- c(paste0("soil.pca.pc",as.character(1:ncol(soil.pca.x))))
+ #summary(soil.pca)$importance[3,]
+forest.new <- cbind(forest.new, soil.pca.x[,1:16]) #90.7% of importantance
 
+idxs.zone = grep("trans.zone", colnames(forest.new))
+temp.zone = forest.new[,idxs.zone]
+zone.pca = prcomp(temp.zone, scale = F)
+zone.pca.x = zone.pca$x
+colnames(zone.pca.x) <- c(paste0("zone.pca.pc",as.character(1:ncol(zone.pca.x))))
+ #summary(zone.pca)$importance[3,]
+forest.new <- cbind(forest.new, zone.pca.x[,1:6]) #99.7% of importantance
+
+par(mfrow=c(1,2))
+plot(summary(soil.pca)$importance[3,], xlab="Principal Components", ylab="Importance",
+     main="Soil Type PCA Importance Plot", pch=20, col="red")
+plot(summary(zone.pca)$importance[3,], xlab="Principal Components", ylab="Importance",
+     main="Soil Zone PCA Importance Plot", pch=20, col="blue")
+par(mfrow=c(1,1))
+```
+
+```{r}
 idxs = grep("Aspect|Hillshade|Slope", colnames(forest.numeric))
 temp = forest.new[,idxs]
 shadeslope.pca = prcomp(temp, scale = F)
