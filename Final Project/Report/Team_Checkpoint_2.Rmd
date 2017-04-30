@@ -100,12 +100,12 @@ knitr::kable(ct.df, caption = "Cover Type Classes", format="pandoc")
 
 Most classification algortihms can be applied, either directly or through slight modifications, to multiclass classification problems. Two different approaches exists for multi-class classification: algorithms that naturally permit the use of more than two classes and those that first reduce a multi-class problem to a collection of binary-class problems and then combine their predictions in various ways. The following is a list of algorithms we will consider for our problem:
 
-*Discriminant Analysis* 
-*Logistic Regression* 
-*K-Nearest Neighbors*
-*Random Forests*
-*Neural Network* 
-*Support Vector Machine*
+* Discriminant Analysis
+* Logistic Regression
+* K-Nearest Neighbors 
+* Random Forests
+* Neural Network
+* Support Vector Machine
 
 We will use ‘Kappa’ as a metric to optimize for tuning our parameters because this metric can improve the quality of the model for problems where there are a low percentage of samples in one class.
 
@@ -438,7 +438,11 @@ The distribution for Hillshade.12pm was noticeably skewed in the boxplots above,
 ```{r}
 # transform Hillshade.12pm and Vdist.Hydrology
 forest.new= forest.orig
+
 forest.new$trans.Hillshade.12pm = log(forest.new$Hillshade.12pm)
+
+#forest.new$trans.Hillshade.12pm = log(forest.new$Hillshade.12pm)
+
 #forest.new$trans.VDist.Hydrology = preProcess(forest.new$VDist.Hydrology, method = "YeoJohnson")
 forest.new$trans.LDist.Hydrology <- sqrt(forest.new$VDist.Hydrology^2 + forest.new$HDist.Hydrology^2) 
 
@@ -460,11 +464,11 @@ forest.new$trans.zone87 <- rowSums(forest.new[,c("SoilType35", "SoilType36","Soi
 
 ```
 
+
 Furthermore, we attempt to reduce the variable complexity of 40 soil variables with principal component analysis. We found that 90.7% of the variance can be explained with 16 variables instead of 40. Similar analysis using 6 of 10 Soil Zones explains 99.2% of variation. This may help with modeling efforts the rely on reducing model complexity.
 
-
-
 ```{r}
+
 #PCA
 idxs.soil = grep("Soil", colnames(forest.new))
 temp.soil = forest.new[,idxs.soil]
@@ -489,8 +493,28 @@ plot(summary(zone.pca)$importance[3,], xlab="Principal Components", ylab="Import
      main="Soil Zone PCA Importance Plot", pch=20, col="blue")
 par(mfrow=c(1,1))
 ```
+
+
 The correlation plot below also shows high correlations between Hillshade, Aspect, and Slope. By performing PCA analysis we are able to reduce 5 variables down to 3, with 0 correlation and explaining 99.7% of the variance. This is highly likely to be useful for models that need to minimize highly correlated variables.
+
 ```{r}
+idxs = grep("Aspect|Hillshade|Slope", colnames(forest.numeric))
+temp = forest.new[,idxs]
+shadeslope.pca = prcomp(temp, scale = F)
+shadeslope.pca.x = shadeslope.pca$x
+colnames(shadeslope.pca.x) = c('shade.pca.pc1','shade.pca.pc2','shade.pca.pc3','shade.pca.pc4','shade.pca.pc5')
+forest.new <- cbind(forest.new, shadeslope.pca.x[,1:3]) #99.7% of important
+#plot(summary(shadeslope.pca)$importance[3,])
+#summary(shadeslope.pca)$importance[3,]
+#summary(shadeslope.pca)
+
+idxs = grep("pca|PC", colnames(forest.new))
+corrplot(cor(forest.new[,idxs]), 
+         tl.col = "black", tl.cex = 0.8, tl.srt = 45,
+         cl.cex = 0.8, pch.cex = 0.8, diag = FALSE,
+         type="lower",
+         addCoefasPercent = TRUE, addCoef.col = TRUE,number.cex = .6) #Matt added to show correlation amounts
+
 idxs = grep("Aspect|Hillshade|Slope", colnames(forest.numeric))
 temp = forest.new[,idxs]
 shadeslope.pca = prcomp(temp, scale = F)
@@ -510,6 +534,7 @@ corrplot(cor(forest.new[,idxs]),
 
 
 ```
+
 
 Several of the multi-classification models we will rely on accounting for variables with near zero variance. Neural networks, logistic regression and KNN models prefer that no near zero variance variables are in the dataset. In this dataset, 32 of the 40 soil variables have near zero variance. We will look to principal component analysis, combining predictors, and removing predictors to remedy this issue. 
 
@@ -543,6 +568,113 @@ indices.valid <- setdiff(seq_len(nrow(forest.new)), indices.train)
 forest.train <- forest.new[indices.train,]
 forest.valid <- forest.new[indices.valid,]
 
+```
+
+# Exploratory Models - Feature Selection
+
+Next we will run a few exploratory models to help us understand the relationships in our data and help to evaluate the most important variables for feature selection.
+
+## Linear Discriminant Analysis
+
+Linear Discriminant Analysis tries to find a linear combination of the predictors that gives maximum separation between the centers of the data while at the same time minimizing the variation within each group of data. We ran an exploratory model on the data that returned the linear combinations of the original variables that were created to distinguish between the classes. The variables with large absolute values in the scalings are more likely to be influential. For this data, Elevation, Area4 and trans.zone27 seem to be among the important variables. The first discriminant function, LD1, achieves 73.85% of the separation of classes, with the second discriminant function, LD2, improving the separation by 18.19%. Therefore, to achieve a good separation of the classes, we should use both of the first two discriminant functions. 
+
+```{r}
+#Remove SoilTypes and Aspect, Slope and Hillsides
+forest.train.rm <- forest.train[,-c(2,3,4,7,8,9, 15:54,68:83)]
+```
+
+```{r}
+# Check for Collinearity
+totalcorr <- cor(forest.train.rm)
+highCorr <- findCorrelation(totalcorr, cutoff = 0.7)
+highCorr
+```
+
+```{r}
+forest.train.rm <- forest.train.rm[,-5]
+```
+
+```{r}
+forest.train.rm$CoverType <- as.factor(forest.train.rm$CoverType)
+```
+
+
+```{r, eval=FALSE}
+
+explore.lda <- train(CoverType ~ .,  data = forest.train.rm,
+                             method = "lda", 
+                             metric = "Kappa", 
+                             preProc = c("center", "scale"))
+
+```
+
+```{r, eval=FALSE}
+explore.lda$finalModel
+```
+
+
+## Decision Tree
+
+THe tree plot below shows the result of fitting a decision tree algorithm to all of our data, the purpose of which is to draw insights regarding predictor variables that could be most effective in building a predictive model. Each node in the tree shows the predicted class, the predicted probability of each class and the percentage of observations in the node. Our tree uses the variables Elevation, Trans.zone87 and Area3 to predict our classes.
+
+```{r}
+library(rpart)
+library(rpart.plot)
+rpart.plot(rpart(factor(forest.train.rm$CoverType) ~ ., data = forest.train.rm), main = "Tree Plot for Cover Type")
+```
+
+
+```{r, eval=FALSE}
+explore.rf <- train(CoverType ~ .,  data = forest.train.rm,
+                             method = "rf", 
+                             metric = "Kappa", 
+                             importance = TRUE)
+```
+
+
+# Predictive Modeling: Methods and Results
+
+```{r model prep}
+
+forest.transforms.colnames = colnames(forest.train)
+forest.modeling.colnames = forest.transforms.colnames
+idxs = grep("^Elevation|^Aspect|^Slope|^HDist|^VDist|^Hillshade|^Area|^SoilType",forest.modeling.colnames)
+forest.modeling.colnames[idxs] = paste("orig.",forest.transforms.colnames[idxs],sep = "")
+idxs = grep("^PC",forest.modeling.colnames)
+forest.modeling.colnames[idxs] = paste("pca.soil.",forest.transforms.colnames[idxs],sep = "")
+colnames(forest.train) = forest.modeling.colnames
+colnames(forest.valid) = forest.modeling.colnames
+
+forest.modeling.colidxs = grep("^orig.Elevation|^orig.Aspect|^orig.Slope|^orig|^VDist|^Hillshade|^Area|^SoilType",forest.modeling.colnames)
+
+```
+
+
+```{r random forest}
+
+```
+
+```{r neural network}
+
+```
+
+```{r svm}
+
+```
+
+```{r knn}
+
+```
+
+```{r logistic regression}
+
+```
+
+```{r discriminant analysis}
+
+```
+
+```{r ensemble}
 
 ```
 
@@ -552,8 +684,6 @@ Our initial analysis for our forest cover type prediction problem included defin
 
 Our preliminary exploratory analysis revealed some potentially useful predictors and helped us to understand the relationships in our data. Principal components analysis helped us narrow our soil variables down from 40 to 16 variables. Additionally, we prepared the data by creating a subset of 70% of the data to train our models on, and a validation set of 30% of the data to test those models on. Our next step will be to build a few exploratory models in order to gain further insights into predictors.
 
-
-# Predictive Modeling: Methods and Results
 
 ```{r model prep}
 
@@ -642,6 +772,8 @@ varImpPlot(df.rf, main='Variable Importance from Random Forest', cex=0.8)
 
 <!--
 
+=======
+>>>>>>> update report with explore models
 # Comparison of Results
 
 # Conclusions
