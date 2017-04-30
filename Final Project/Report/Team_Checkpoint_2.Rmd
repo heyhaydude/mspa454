@@ -433,7 +433,7 @@ ggplot(forest, aes(x=Aspect)) +
 
 ## Data Preparation- Transformations
 
-The distributions for Hillshade.12pm and Vdist.Hydrology were noticeably skewed in the boxplots above, so we create log transformations of these variables for later use in our models.
+The distribution for Hillshade.12pm was noticeably skewed in the boxplots above, so we create a log transformation of Hillshade.12pm and  for later use in our models. Additionally we created an interaction variable using Vist.Hydrology and HDistHydrology.
 
 ```{r}
 # transform Hillshade.12pm and Vdist.Hydrology
@@ -497,7 +497,7 @@ corrplot(cor(forest.new[,idxs]),
 
 ```
 
-Several of the multi-classification models we will employ rely on accounting for variables with near zero variance. Neural networks, logistic regression and KNN models prefer that no near zero variance variables are in the dataset. In this dataset, 32 of the 40 soil variables have near zero variance. We will look to principal component analysis, combining predictors, and removing predictors to remedy this issue. 
+Several of the multi-classification models we will rely on accounting for variables with near zero variance. Neural networks, logistic regression and KNN models prefer that no near zero variance variables are in the dataset. In this dataset, 32 of the 40 soil variables have near zero variance. We will look to principal component analysis, combining predictors, and removing predictors to remedy this issue. 
 
 ```{r}
 
@@ -532,11 +532,11 @@ forest.valid <- forest.new[indices.valid,]
 
 ```
 
-# Conclusion
+# Conclusions from EDA and Data Preparation
 Our initial analysis for our forest cover type prediction problem included defining our modeling problem, doing a data quality and inventory check and performing a preliminary exploratory data analysis. The results of our data quality check showed that we had no missing data and gave us a cursory understanding of our data set. 
 
 
-Our preliminary exploratory analysis revealed some potentially useful predictors and helped us to understand the relationships in our data. Our next step will be to build a few exploratory models in order to gain further insights into predictors we can use in our modeling and to prepare our data for modeling.
+Our preliminary exploratory analysis revealed some potentially useful predictors and helped us to understand the relationships in our data. Principal components analysis helped us narrow our soil variables down from 40 to 16 variables. Additionally, we prepared the data by creating a subset of 70% of the data to train our models on, and a validation set of 30% of the data to test those models on. Our next step will be to build a few exploratory models in order to gain further insights into predictors.
 
 
 # Predictive Modeling: Methods and Results
