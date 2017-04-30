@@ -462,7 +462,7 @@ forest.new$trans.zone87 <- rowSums(forest.new[,c("SoilType35", "SoilType36","Soi
 
 Furthermore, we attempt to reduce the variable complexity of 40 soil variables with principal component analysis. We found that 90.7% of the variance can be explained with 16 variables instead of 40. Similar analysis using 6 of 10 Soil Zones explains 99.2% of variation. This may help with modeling efforts the rely on reducing model complexity.
 
-The correlation plot above also shows high correlations between Hillshade, Aspect, and Slope. By performing PCA analysis we are able to reduce 5 variables down to 3, with 0 correlation and explaining 99.7% of the variance. This is highly likely to be useful for models that need to minimize highly correlated variables.
+
 
 ```{r}
 #PCA
@@ -489,7 +489,7 @@ plot(summary(zone.pca)$importance[3,], xlab="Principal Components", ylab="Import
      main="Soil Zone PCA Importance Plot", pch=20, col="blue")
 par(mfrow=c(1,1))
 ```
-
+The correlation plot below also shows high correlations between Hillshade, Aspect, and Slope. By performing PCA analysis we are able to reduce 5 variables down to 3, with 0 correlation and explaining 99.7% of the variance. This is highly likely to be useful for models that need to minimize highly correlated variables.
 ```{r}
 idxs = grep("Aspect|Hillshade|Slope", colnames(forest.numeric))
 temp = forest.new[,idxs]
