@@ -79,7 +79,7 @@ library(car)
 The U.S. Forest Service relies on an accurate understanding of its forests composition in order to best protect and manage the forest land. Conducting accurate inventory of forest composition by direct observation or remotely sensed data is often too expensive and time consuming to do at large-scale. Predictive analytics can be employed to use the results of a small-scale survey to create a model that can be applied across a large region, using descriptive features extracted from maps of the area.
 
 
-In this paper, our objective is to predict the forest cover type given a set of cartographic features and a variety of mulitclass classification models. Our models will be evaluated using predictive accuracy. 
+In this paper, our objective is to predict the forest cover type given a set of cartographic features and a variety of multiclass classification models. Our models will be evaluated using predictive accuracy. 
 
 
 # The Modeling Problem
@@ -98,7 +98,7 @@ colnames(ct.df) <- c("Cover Type", "Number of Observations")
 knitr::kable(ct.df, caption = "Cover Type Classes", format="pandoc") 
 ```
 
-Most classification algortihms can be applied, either directly or through slight modifications, to multiclass classification problems. Two different approaches exists for multi-class classification: algorithms that naturally permit the use of more than two classes and those that first reduce a multi-class problem to a collection of binary-class problems and then combine their predictions in various ways. The following is a list of algorithms we will consider for our problem:
+Most classification algorithms can be applied, either directly or through slight modifications, to multiclass classification problems. Two different approaches exists for multi-class classification: algorithms that naturally permit the use of more than two classes and those that first reduce a multi-class problem to a collection of binary-class problems and then combine their predictions in various ways. The following is a list of algorithms we will consider for our problem:
 
 * Discriminant Analysis
 * Logistic Regression
@@ -442,8 +442,6 @@ The distribution for Hillshade.12pm was noticeably skewed in the boxplots above,
 # transform Hillshade.12pm and Vdist.Hydrology
 forest.new= forest.orig
 
-forest.new$trans.Hillshade.12pm = log(forest.new$Hillshade.12pm)
-
 #forest.new$trans.Hillshade.12pm = log(forest.new$Hillshade.12pm)
 
 #forest.new$trans.VDist.Hydrology = preProcess(forest.new$VDist.Hydrology, method = "YeoJohnson")
@@ -582,7 +580,7 @@ forest.train.rm$CoverType <- as.factor(forest.train.rm$CoverType)
 ```
 
 
-```{r, eval=FALSE}
+```{r, eval=FALSE, warning=FALSE, error=FALSE}
 
 explore.lda <- train(CoverType ~ .,  data = forest.train.rm,
                              method = "lda", 
@@ -591,8 +589,18 @@ explore.lda <- train(CoverType ~ .,  data = forest.train.rm,
 
 ```
 
-```{r, eval=FALSE}
-explore.lda$finalModel
+```{r}
+#saveRDS(explore.lda, "./explore.lda.rds")
+
+```
+
+```{r}
+explore.lda <- readRDS("./explore.lda.rds")
+```
+
+
+```{r}
+kable(explore.lda$finalModel$scaling, format="pandoc")
 ```
 
 
@@ -606,6 +614,31 @@ library(rpart.plot)
 rpart.plot(rpart(factor(forest.train.rm$CoverType) ~ ., data = forest.train.rm), main = "Tree Plot for Cover Type")
 ```
 
+\newpage
+# Modeling Plan
+
+Based on our modeling problem and exploratory data analysis, we will run various classification algorithms that can predict more than two classes. We will try variations of the following algorithms, which will require different data preparations:
+
+## Discriminant Analysis 
+LDA assumes normal predictors and that the predictors have equal variance. LDA then estiamtes the mean and variance for the predictors for each class. There is no tuning parameter and the model is sensitive to highly correlated predictors and near-zero predictors. The data must also be centered and scaled.
+
+## Logistic Regression
+The model is sensitive to highly correlated predictors and near-zero predictors. The data must also be centered and scaled.
+
+## K-Nearest Neighbors
+Predictions are made for by searching through the entire training set for the K most similar instances and summarizing the most common class for those K instances. KNN is suited for lower dimensional data. We will need to center and scale predictors prior to performing KNN. The model is sensitive to near-zero predictors and the tuning parameter is k.
+
+## Random Forests
+Each tree in the forest casts a vote for the classification of a new sample, and the proportion of votes in each class across the ensemble is the predicted probability vector.  Tuning parameter is mtry, the number of variables randomly sampled as candidates at each split. No need to preprocess the data. 
+
+##Neural Network
+Rather than having one neuron in the output layer, have N binary neuron leading to multiclass classification. Classes are converted into binary indicators for N binary neurons. Tuning parameters are size and decay. The model is sensitive to highly correlated predictors and near-zero predictors. The data must also be centered and scaled.
+
+## Support Vector Machine
+A support vector machine algorithm an optimal hyperplane which categorizes new examples into a class. The tuning parameter is C, allows violation of the margins with C=0 allowing for no violation and higher variance and larger C resulting in a less sensitive algorithm. the The model requires centering and scaling of data.  
+
+## Predictors
+We will use various subsets of our predictor including: all, our most important predictors as informed by our EDA, and our reduced subsets created using PCA.
 
 ```{r, eval=FALSE}
 explore.rf <- train(CoverType ~ .,  data = forest.train.rm,
@@ -633,7 +666,7 @@ forest.modeling.colidxs = grep("^orig.Elevation|^orig.Aspect|^orig.Slope|^orig|^
 ```
 
 \newpage
-# Conclusions from EDA and Data Preparation
+# Conclusion
 Our initial analysis for our forest cover type prediction problem included defining our modeling problem, doing a data quality and inventory check and performing a preliminary exploratory data analysis. The results of our data quality check showed that we had no missing data and gave us a cursory understanding of our data set. 
 
 
