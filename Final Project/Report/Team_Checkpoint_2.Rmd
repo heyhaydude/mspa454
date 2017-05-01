@@ -614,6 +614,33 @@ library(rpart.plot)
 rpart.plot(rpart(factor(forest.train.rm$CoverType) ~ ., data = forest.train.rm), main = "Tree Plot for Cover Type")
 ```
 
+```{r, eval=FALSE}
+library(randomForest)
+set.seed(123)
+explore.rf <- randomForest(CoverType~.,
+                         data = forest.train.rm,
+                         ntree = 10, nodesize = 10, importance = TRUE)
+```
+
+```{r}
+#saveRDS(explore.rf, "./explore.rf.rds")
+
+```
+
+```{r}
+explore.rf <- readRDS("./explore.rf.rds")
+```
+
+## Random Forest
+
+The chart below shows the variables plotted by two measures of importance, Mean Decrease Accuracy and Mean Decrease Gini. Gini importance measures the average gain of purity by splits of a given variable.
+
+```{r, fig.cap="Variable Importance", warning=FALSE, message=FALSE}
+library(randomForest)
+varImpPlot(explore.rf, main = 'Variable Importance')
+```
+
+
 \newpage
 # Modeling Plan
 
