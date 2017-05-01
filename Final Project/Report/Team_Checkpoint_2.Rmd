@@ -583,12 +583,6 @@ Linear Discriminant Analysis tries to find a linear combination of the predictor
 forest.train.rm <- forest.train[,-c(2,3,4,7,8,9, 15:54,68:83)]
 ```
 
-```{r}
-# Check for Collinearity
-totalcorr <- cor(forest.train.rm)
-highCorr <- findCorrelation(totalcorr, cutoff = 0.7)
-highCorr
-```
 
 ```{r}
 forest.train.rm <- forest.train.rm[,-5]
@@ -634,7 +628,7 @@ explore.rf <- train(CoverType ~ .,  data = forest.train.rm,
 
 # Predictive Modeling: Methods and Results
 
-```{r model prep}
+```{r}
 
 forest.transforms.colnames = colnames(forest.train)
 forest.modeling.colnames = forest.transforms.colnames
@@ -649,34 +643,6 @@ forest.modeling.colidxs = grep("^orig.Elevation|^orig.Aspect|^orig.Slope|^orig|^
 
 ```
 
-
-```{r random forest}
-
-```
-
-```{r neural network}
-
-```
-
-```{r svm}
-
-```
-
-```{r knn}
-
-```
-
-```{r logistic regression}
-
-```
-
-```{r discriminant analysis}
-
-```
-
-```{r ensemble}
-
-```
 
 # Conclusions from EDA and Data Preparation
 Our initial analysis for our forest cover type prediction problem included defining our modeling problem, doing a data quality and inventory check and performing a preliminary exploratory data analysis. The results of our data quality check showed that we had no missing data and gave us a cursory understanding of our data set. 
@@ -705,7 +671,7 @@ forest.train[,idxs] = lapply(forest.train[,idxs], as.factor)
 
 ```
 
-```{r random forest}
+```{r random forest, eval=FALSE}
 library(randomForest)
 library(caret)
 
