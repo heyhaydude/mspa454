@@ -1,0 +1,841 @@
+---
+title: "Team Checkpoint 3"
+author: "Annie Condon, Matt Hayden, Matt Robertson, Yvette Gonzalez"
+subtitle: Forest Cover Team B
+output:
+  pdf_document:
+    fig_caption: yes
+    includes:
+      before_body: latex/before_body.tex
+    number_sections: yes
+    toc: yes
+  html_document:
+    fig_caption: yes
+    includes:
+      before_body: latex/before_body.tex
+    number_sections: yes
+    toc: yes
+---
+
+```{r setup, include=FALSE, message=FALSE, warning=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+```
+
+```{r, warning=FALSE, message=FALSE}
+# read in the data, create dataframe
+gz = gzfile('data/covtype.data.gz','rt') 
+forest.orig = read.csv(gz,header=F)
+forest.orig.colnames = t(read.csv('data/covtyp.colnames.csv',header=F))
+colnames(forest.orig) = forest.orig.colnames
+
+# identify continuous variables
+forest.var.continuous = c('Elevation','Aspect','Slope', 'HDist.Hydrology', 'VDist.Hydrology', 
+                          'HDist.Roadway', 'Hillshade.9am', 'Hillshade.12pm', 'Hillshade.3pm',
+                          'HDist.FirePoint')
+
+# for speed, will perform eda on subset until ready to do a full run
+set.seed(33)
+forest = forest.orig[sample(nrow(forest.orig),20000),]
+forest.var.discrete.indices = grep("^Area|^SoilType|CoverType", colnames(forest))
+forest[,forest.var.discrete.indices] = as.factor(unlist(forest[,forest.var.discrete.indices]))
+
+forest.numeric = as.data.frame(sapply(forest,as.numeric))
+
+covertype.names = c('Spruce-fir','Lodgepole Pine','Ponderosa Pine','Cottonwood-Willow','Aspen','Douglas-fir','Krummholz')
+
+forest$CoverType[forest$CoverType==1] = 'Spruce-fir'
+forest$CoverType[forest$CoverType==2] = 'Lodgepole Pine'
+forest$CoverType[forest$CoverType==3] = 'Ponderosa Pine'
+forest$CoverType[forest$CoverType==4] = 'Cottonwood-Willow'
+forest$CoverType[forest$CoverType==5] = 'Aspen'
+forest$CoverType[forest$CoverType==6] = 'Douglas-fir'
+forest$CoverType[forest$CoverType==7] = 'Krummholz'
+
+
+# add Area column
+# are any in multiple areas? NO. all belong to only one area
+idx = grep("Area", colnames(forest))
+temp = forest.numeric[,idx]
+temp.rows = temp[apply(temp,1,sum) > 1,]
+temp$Z.Area = apply(temp,1,function(x) {
+  return(which.max(x))
+})
+forest.numeric$Z.Area = temp$Z.Area
+
+forest.scaled = as.data.frame(scale(forest.numeric))
+
+library(lattice)
+library(ggplot2)
+library(corrplot)
+library(MASS)
+library(caret)
+library(car)
+library(DMwR)
+library(dplyr)
+```
+
+\newpage
+
+# Introduction
+
+The U.S. Forest Service relies on an accurate understanding of its forests composition in order to best protect and manage the forest land. Conducting accurate inventory of forest composition by direct observation or remotely sensed data is often too expensive and time consuming to do at large-scale. Predictive analytics can be employed to use the results of a small-scale survey to create a model that can be applied across a large region, using descriptive features extracted from maps of the area.
+
+
+In this paper, our objective is to predict the forest cover type given a set of cartographic features and a variety of multiclass classification models. Our models will be evaluated using predictive accuracy. 
+
+
+# The Modeling Problem
+
+Our modeling problem is to predict the forest cover type as a multiclass classification problem based on the associated features. A multiclass classification problem classifies instances into one of the more than two classes. Our forest cover type is defined as one of seven, mutually exclusive, forest cover type classes, shown in table 1 below.
+
+```{r}
+cover_types <- c("Spruce/Fir", "Lodgepole Pine", "Ponderosa Pine", "Cottonwood/Willow", "Aspen", 
+                 "Douglas/Fir", "Krummholz")
+instances <- c(211840, 283301, 35754, 2747, 9493, 17367, 20510)
+ct.df <- data.frame(cover_types, instances)
+colnames(ct.df) <- c("Cover Type", "Number of Observations")
+```
+
+```{r}
+knitr::kable(ct.df, caption = "Cover Type Classes", format="pandoc") 
+```
+
+Most classification algorithms can be applied, either directly or through slight modifications, to multiclass classification problems. Two different approaches exists for multi-class classification: algorithms that naturally permit the use of more than two classes and those that first reduce a multi-class problem to a collection of binary-class problems and then combine their predictions in various ways. The following is a list of algorithms we will consider for our problem:
+
+* Discriminant Analysis
+* Logistic Regression
+* K-Nearest Neighbors 
+* Random Forests
+* Neural Network
+* Support Vector Machine
+
+We will use ‘Kappa’ as a metric to optimize for tuning our parameters because this metric can improve the quality of the model for problems where there are a low percentage of samples in one class.
+
+## Evaluating Classification Models
+
+We will evaluate a number of different models by applying them to a holdout 'test' dataset and assessing their performance. Because there is an imbalance in the classes to be predicted, we will consider alternatives to 'accuracy' to evaluate our final models. Using accuracy only to evaluate models can perform poorly in predicting the less frequent classes. We will instead look at two metrics that handle class imbalance: balanced accuracy and f1 score. Balanced accuracy is (sensitivity+specificity)/2, or the average accuracy over all classes. F1 Score is precision x recall/(precision + recall),the weighted average of precision and recall. The precision measures the accuracy of a predicted positive outcome and recall (sensitivity) measures the strength of the model to predict a positive outcome Therefore, this score takes both false positives and false negatives into account.    
+
+# The Data
+
+Our data set consists of 581,012 observations of the 30 x 30 meter cells of forest and 54 features associated with each cell. The features are derived from 12 attributes, with area and soil type binarized so that there are 4 binary area designators and 40 binary soil type designators. There is no missing data. The feature descriptions are listed in the table below:
+
+
+```{r}
+features <- c("Elevation", "Aspect", "Slope", "HDist.Hydrology", "VDist.Hydrology",
+              "HDist.Roadway", "Hillshade.9am", "Hillshade.12pm", "Hillshade.3pm", 
+              "HHDist.FirePoint", "Area", "SoilType")
+descriptions <- c("Elevation in meters", "Aspect in degrees aziumuth", "Slope in degrees", 
+                 "Horizontal distance to nearest surface water feature in meters", 
+                 "Vertical distance to nearest surface water feature in meters", 
+                 "Horizontal distance to nearest roadway in meters", "Hillshade index at 9am, summer solstice", 
+                "Hillshade index at noon, summer soltice", "Hillshade index at 3pm, summer solstice", 
+              "Horizontal Distance to nearest wildfire ignition points", "Wilderness area designation - 4 binary areas",
+              "Soil Type designation - 40 binary values")
+features.df <- data.frame(features, descriptions)
+colnames(features.df) <- c("Feature", "Descriptions")
+```
+
+```{r}
+knitr::kable(features.df, caption = "Features", format="pandoc") 
+```
+
+
+## Response Variable
+
+
+Figure one shows the frequency of each class of cover type in our data set. 85 percent of the observations fall into classes 1 and 2, Spruce/Fir and Lodgepole Pine. Class 4, Cottonwood/Willow has the least amount of observations at 2,747.
+
+
+```{r,fig.cap="Frequency of each Cover Type Class", fig.height=3}
+library(scales)
+
+ggplot(as.data.frame(table(forest.orig$CoverType)), aes(x=Var1, y = Freq)) + ggtitle("Forest Cover
+Frequency by Class") + geom_bar(stat = "identity", fill="#1f78b4", width=.5,
+                                color="black") + xlab("Cover Type") + scale_y_continuous(name="Frequency", labels = comma)
+```
+
+\newpage
+## Continuous Variables
+
+
+Table 3 includes some standard statistical measures of central tendency and variation for our continuous variables, for investigation of unusual values. We would first like to note that an Aspect value of 0 and 360 would both be equal to true north, so we should standardize that value. Next, we will point out that while a negative distance value for VDist.Hydrology may appear to be an error, it is in fact reasonable due to it being a vertical measurement from differing altitudes, making a negative distance possible. Our Hillshade values fall into the hillshade index integer value range of 0 to 255. Also, our horizontal distances all have minimum values of 0.
+
+
+```{r fig.cap="Summary Statistics"}
+options(digits=3)
+my.summary <- function(x,...){
+  c(mean=round(mean(x, ...), digits = 4),
+    sd=round(sd(x, ...), digits=4),
+    median=median(x, ...),
+    min=min(x, ...),
+    max=max(x,...),
+    nmiss=sum(is.na(x,...)),
+    type="Continuous")
+}
+
+
+forest.stats= apply(forest.orig[,1:10], 2, my.summary)
+
+library(knitr)
+kable(t(forest.stats), caption= "Summary Statistics for Continuous Data", format="pandoc")
+```
+
+
+## Binary Variables
+
+
+Our data's binary variables consist of 4 different wilderness area designators and 40 different soil type designators. Table 4 and 5 below represent the frequency of each of the areas and soil types, in descending order.
+
+
+```{r}
+## area
+forest.area= forest.orig[11:14]
+
+summary.area <- data.frame(
+  Name = character(),
+  Count = numeric(),
+  stringsAsFactors = F)
+
+for (i in 1:4){
+  summary.area[i,1] <- names(forest.area[i])
+  summary.area[i,2] <- sum(forest.area[,i])
+}
+
+area<-summary.area[with(summary.area,order(-Count)),]
+kable(area,caption= "Area Type Counts", format="pandoc", row.names = F)
+
+## soil
+forest.soil= forest.orig[15:54]
+
+summary.soil <- data.frame(
+  Name = character(),
+  Count = numeric(),
+  stringsAsFactors = F)
+
+for (i in 1:40){
+  summary.soil[i,1] <- names(forest.soil[i])
+  summary.soil[i,2] <- sum(forest.soil[,i])
+}
+
+
+soil<-summary.soil[with(summary.soil,order(-Count)),]
+kable(soil, caption= "Soil Type Counts", format="pandoc", row.names = F)
+```
+
+\newpage
+# Exploratory Data Analysis
+
+Our next step is to explore the relationships in our data. We will begin by looking at boxplots of our scaled continuous variables in order to understand their relative distribution. We note that Hillshade.12pm and VDist.Hydrology have more pronounced skews than the other variables. We will need to investigate transformations if we use modeling techniques that can be negatively effected by outliers.
+\newline
+\newline
+
+```{r fig.cap="Boxplots of Scaled Continuous Variables"}
+
+st = stack(as.data.frame(forest.scaled[,forest.var.continuous]))
+ggplot(as.data.frame(st)) +
+  geom_boxplot(aes(x = ind, y = values)) +
+  theme(axis.text.x = element_text(angle=45, hjust = 1)) +
+  scale_x_discrete(name ="") + scale_y_continuous(name ="") +
+  ggtitle("Boxplots of Scaled Continuous Variables")
+```
+
+\newpage
+Our data exploration is informed by our statistical problem, which is one of multiclass classification. We will therefore be interested in exploring our predictors by each of our classes. The density plots below superimpose the density estimates for each variable by class, 1-7. We note that our variable Aspect shows multimodel distributions, indicating that it may have more than one grouping included. This is due to the value of 0 and 360 both being equal to true north, which we will have to address in data preparation.  We will also note that several of our variables show distinct distributions by class, indicating that they would serve as a good predictor.
+\newline
+\newline
+
+
+```{r fig.cap="Density Plots of Continuous Variables by Class"}
+density.plots = densityplot(~ Elevation + Aspect + Slope + HDist.Hydrology + VDist.Hydrology + 
+                              HDist.Roadway + Hillshade.9am + Hillshade.12pm + Hillshade.3pm +
+                              HDist.FirePoint,
+                            data=forest, 
+                            groups = CoverType, 
+                            plot.points = FALSE, 
+                            auto.key = list(space="right",title="Cover Type",cex=.6),
+                            scales= list(x="free",y="free"), 
+                            xlab = '', 
+                            ylab=list(cex=.8), 
+                            aspect="fill",
+                            par.strip.text=list(cex=.9))
+plot(density.plots)
+```
+
+
+\newpage
+Figure 4 shows density plots by each of the four wilderness areas.Several variable values appear to be distinguishable by wilderness area. 
+\newline
+\newline
+
+
+```{r fig.cap="Density Plots of Continuous Variables by Area"}
+density.plots = densityplot(~ Elevation + Aspect + Slope + HDist.Hydrology + VDist.Hydrology + 
+                              HDist.Roadway + Hillshade.9am + Hillshade.12pm + Hillshade.3pm +
+                              HDist.FirePoint,
+                            data=forest.numeric, 
+                            groups = Z.Area, 
+                            plot.points = FALSE, 
+                            auto.key = list(space="right",title="Area",cex=.6),
+                            scales= list(x="free",y="free"), 
+                            xlab = '', 
+                            ylab=list(cex=.8), 
+                            aspect="fill",
+                            par.strip.text=list(cex=.9))
+plot(density.plots)
+```
+
+
+\newpage
+Next, we will look at the correlations between the our predictor variables. Highly correlated predictors can have a negative effect on some of our modeling algorithms. Below is a correlation matrix with dark blue colors indicating a strong positive correlation and dark red colors indicating a strong negative correlation. We see the following variables with higher correlations that should be investigated further:
+
+
+High Positive Collinearity
+
+
+* VDist.Hydrology and HDist.Hydrology
+* Aspect and Hillshade.3pm
+* Hillshade.3pm and Hillshade.12pm
+
+High Negative Collinearity
+
+
+* Aspect and Hillshade.9am
+* Slope and Hillshade.12pm
+* Hillshade.3pm and Hillshade.9am
+\newline
+\newline
+
+```{r fig.cap="Correlation Matrix"}
+corrplot(cor(forest[, forest.var.continuous]), 
+         tl.col = "black", tl.cex = 0.8, tl.srt = 45,
+         cl.cex = 0.8, pch.cex = 0.8, diag = FALSE,
+         type="lower",
+         addCoefasPercent = TRUE, addCoef.col = TRUE,number.cex = .6) #Matt added to show correlation amounts
+```
+
+
+\newpage
+Figure 6 shows a barchart of our 40 different soil types which shows the proportion of frequency of each class. We can see that soil types 1-7 have similar proportions, as do 19-33 and 38-40. A few soil types have only one cover type class, making them especially good predictors.
+\newline
+\newline
+
+
+```{r fig.cap="Soil Barchart"}
+idx = grep("SoilType|CoverType", colnames(forest.numeric))
+df = as.data.frame(forest.numeric[,idx])
+idx.type = grep("CoverType", colnames(df))
+
+df.temp = df[,-idx.type]
+
+soil.sums = apply(df.temp,2,function(x) {
+  tbl = table(x,df$CoverType)
+  if (dim(tbl)[1] < 2) {
+    tbl = rbind('0' = tbl, '1' = rep(0,7), deparse.level = 1)
+  }
+  return (apply(tbl,1,sum)[2])
+})
+#soil.sums
+
+soil.sums.byclass = apply(df[,-idx.type],2,function(x) {
+  tbl = table(x,df$CoverType)
+  tbl = tbl[seq(2,14,by=2)]
+  return (tbl)
+})
+#soil.sums.byclass
+
+soil.ratios = as.data.frame(t(soil.sums.byclass)/soil.sums)
+library(RColorBrewer)
+soil.ratios.m = na.omit(as.matrix(soil.ratios))
+barchart(soil.ratios.m,col=brewer.pal(7, "Pastel2"),xlab='',
+         key=list(space="right",
+                  lines=list(col=brewer.pal(7, "Pastel2"),lwd=3),
+                  text=list(covertype.names)
+))
+
+```
+
+
+\newpage
+Figure 7 shows a barchart of our 4 different wilderness areas with the proportion of frequency of each class. We can see that the class composition in area 4 is distinguishable from the other areas, making it a good predictor.
+\newline
+\newline
+
+
+```{r fig.cap="Area Barchart"}
+idx = grep("Area1|Area2|Area3|Area4|CoverType", colnames(forest.numeric))
+df = as.data.frame(forest.numeric[,idx])
+idx.type = grep("CoverType", colnames(df))
+
+df.temp = df[,-idx.type]
+
+area.sums = apply(df.temp,2,function(x) {
+  tbl = table(x,df$CoverType)
+  if (dim(tbl)[1] < 2) {
+    tbl = rbind('0' = tbl, '1' = rep(0,7), deparse.level = 1)
+  }
+  return (apply(tbl,1,sum)[2])
+})
+#area.sums
+
+area.sums.byclass = apply(df[,-idx.type],2,function(x) {
+  tbl = table(x,df$CoverType)
+  tbl = tbl[seq(2,14,by=2)]
+  return (tbl)
+})
+#area.sums.byclass
+
+area.ratios = as.data.frame(t(area.sums.byclass)/area.sums)
+library(RColorBrewer)
+area.ratios.m = na.omit(as.matrix(area.ratios))
+barchart(area.ratios.m,col=brewer.pal(7, "Pastel2"),xlab='',
+         key=list(space="right",
+                  lines=list(col=brewer.pal(7, "Pastel2"),lwd=3),
+                  text=list(covertype.names)
+                  )
+)
+
+
+```
+
+\newpage
+Next, we look at the horizontal distance to the roadway, by class. We can see that most observations in classes 5-7, Aspen, Cottonwood-Willow and Douglas-fir are closest to the roadways.
+\newline
+\newline
+
+
+```{r, fig.cap="Distance to Roadway, by class"}
+ggplot(forest, aes(x=HDist.Roadway)) + 
+  geom_histogram(aes(group=CoverType, colour=CoverType, fill=CoverType), bins=30, alpha=0.7)+
+  ggtitle('')+
+  theme(legend.title = element_blank())+
+  labs(x="Distance to Roadway",y="Count")
+```
+
+\newpage
+Figure 9 shows horizontal distance to the water, by class. Again, we see that most observations in classes 5-7 are closest to a water source.
+\newline
+\newline
+
+
+```{r, fig.cap="Distance to water, by class"}
+ggplot(forest, aes(x=HDist.Hydrology)) + 
+  geom_histogram(aes(group=CoverType, colour=CoverType, fill=CoverType), bins=30, alpha=0.7)+
+  ggtitle('')+
+  theme(legend.title = element_blank())+
+  labs(x="Distance to Water",y="Count")
+```
+
+\newpage
+Figure 10 shows the contrasting relationship between Hillshade.9am and Hillshade.3pm.
+
+```{r, fig.cap="Hillshade.9am and Hillshade.3pm"}
+ggplot(forest, aes(x=Aspect)) + 
+    geom_point(aes(y=Hillshade.9am, color="Hillshade.9am"), alpha=.1) +
+    geom_point(aes(y=Hillshade.3pm, color="Hillshade.3pm"), alpha=.1)
+```
+
+# Data Preparation
+
+##Transformations
+
+The distribution for Hillshade.12pm was noticeably skewed in the boxplots above, so we create a log transformation of Hillshade.12pm and  for later use in our models. Additionally we created an interaction variable using Vist.Hydrology and HDistHydrology. A linear distance variable was also created using the vertical and horizontal distance to hydrology variables.Additionally, soil types were grouped into Climatic and Geologic zones as a potential means to reduce the amount of SoilType variables used for various modeling techniques.
+
+```{r}
+# transform Hillshade.12pm and Vdist.Hydrology
+forest.new= forest.orig
+
+#forest.new$trans.Hillshade.12pm = log(forest.new$Hillshade.12pm)
+
+#forest.new$trans.VDist.Hydrology = preProcess(forest.new$VDist.Hydrology, method = "YeoJohnson")
+forest.new$trans.LDist.Hydrology <- sqrt(forest.new$VDist.Hydrology^2 + forest.new$HDist.Hydrology^2) 
+
+
+# Soil Type to Climate Zone Mapping
+forest.new$trans.zone27 <- rowSums(forest.new[,c("SoilType1", "SoilType2","SoilType3","SoilType4", "SoilType5","SoilType6")])
+forest.new$trans.zone35 <- rowSums(forest.new[,c("SoilType7", "SoilType8")])
+forest.new$trans.zone42 <- forest.new$SoilType9
+forest.new$trans.zone47 <- rowSums(forest.new[,c("SoilType10", "SoilType11","SoilType12","SoilType13")])
+forest.new$trans.zone51 <- rowSums(forest.new[,c("SoilType14", "SoilType15")])
+forest.new$trans.zone61 <- rowSums(forest.new[,c("SoilType16", "SoilType17")])
+forest.new$trans.zone67 <- forest.new$SoilType18
+forest.new$trans.zone71 <- rowSums(forest.new[,c("SoilType19", "SoilType20","SoilType21")])
+forest.new$trans.zone72 <- rowSums(forest.new[,c("SoilType22", "SoilType23")])
+forest.new$trans.zone77 <- rowSums(forest.new[,c("SoilType24", "SoilType25","SoilType26","SoilType27", "SoilType28",
+  "SoilType29", "SoilType30","SoilType31","SoilType32", "SoilType33", "SoilType34")])
+forest.new$trans.zone87 <- rowSums(forest.new[,c("SoilType35", "SoilType36","SoilType37","SoilType38", "SoilType39","SoilType40")])
+
+
+```
+
+
+Furthermore, we attempt to reduce the variable complexity of 40 soil variables with principal component analysis. We found that 90.7% of the variance can be explained with 16 variables instead of 40. Similar analysis using 6 of 10 Soil Zones explains 99.2% of variation. This may help with modeling efforts the rely on reducing model complexity.
+
+```{r}
+
+#PCA
+idxs.soil = grep("Soil", colnames(forest.new))
+temp.soil = forest.new[,idxs.soil]
+soil.pca = prcomp(temp.soil, scale = F)
+soil.pca.x = soil.pca$x
+colnames(soil.pca.x) <- c(paste0("soil.pca.pc",as.character(1:ncol(soil.pca.x))))
+ #summary(soil.pca)$importance[3,]
+forest.new <- cbind(forest.new, soil.pca.x[,1:16]) #90.7% of importantance
+
+idxs.zone = grep("trans.zone", colnames(forest.new))
+temp.zone = forest.new[,idxs.zone]
+zone.pca = prcomp(temp.zone, scale = F)
+zone.pca.x = zone.pca$x
+colnames(zone.pca.x) <- c(paste0("zone.pca.pc",as.character(1:ncol(zone.pca.x))))
+ #summary(zone.pca)$importance[3,]
+forest.new <- cbind(forest.new, zone.pca.x[,1:6]) #99.7% of importantance
+
+par(mfrow=c(1,2))
+plot(summary(soil.pca)$importance[3,], xlab="Principal Components", ylab="Importance",
+     main="Soil Type PCA Importance Plot", pch=20, col="red")
+plot(summary(zone.pca)$importance[3,], xlab="Principal Components", ylab="Importance",
+     main="Soil Zone PCA Importance Plot", pch=20, col="blue")
+par(mfrow=c(1,1))
+```
+
+
+The correlation plot below also shows high correlations between Hillshade, Aspect, and Slope. By performing PCA analysis we are able to reduce 5 variables down to 3, with 0 correlation and explaining 99.7% of the variance. This is highly likely to be useful for models that need to minimize highly correlated variables.
+
+```{r, fig.cap="PCA Correlation", fig.height=4}
+
+idxs = grep("Aspect|Hillshade|Slope", colnames(forest.numeric))
+temp = forest.new[,idxs]
+shadeslope.pca = prcomp(temp, scale = F)
+shadeslope.pca.x = shadeslope.pca$x
+colnames(shadeslope.pca.x) = c('shade.pca.pc1','shade.pca.pc2','shade.pca.pc3','shade.pca.pc4','shade.pca.pc5')
+forest.new <- cbind(forest.new, shadeslope.pca.x[,1:3]) #99.7% of important
+#plot(summary(shadeslope.pca)$importance[3,])
+#summary(shadeslope.pca)$importance[3,]
+#summary(shadeslope.pca)
+
+idxs = grep("pca|PC", colnames(forest.new))
+corrplot(cor(forest.new[,idxs]), 
+         tl.col = "black", tl.cex = 0.8, tl.srt = 45,
+         cl.cex = 0.8, pch.cex = 0.8, diag = FALSE,
+         type="lower",
+         addCoefasPercent = TRUE, addCoef.col = TRUE,number.cex = .6) #Matt added to show correlation amounts
+
+
+```
+
+
+Several of the multi-classification models we will rely on accounting for variables with near zero variance. Neural networks, logistic regression and KNN models prefer that no near zero variance variables are in the dataset. In this dataset, 32 of the 40 soil variables have near zero variance. We will look to principal component analysis, combining predictors, and removing predictors to remedy this issue. 
+
+```{r}
+
+idxs.nzv = nzv(forest.new)
+#colnames(forest.new)[idxs.nzv]
+
+```
+
+##Splitting the Data
+
+We have split our data into 70/30 training-testing set so that we could evaluate the performance of our models.
+
+```{r}
+idxs_trans = grep("trans", colnames(forest.new))
+forest.transforms= forest.new[,idxs_trans]
+idxs_pca = grep("PC|shade.pca", colnames(forest.new))
+forest.pca= forest.new[,idxs_pca]
+idxs_buck = grep("buck", colnames(forest.new))
+forest.bucketing= forest[,idxs_buck]
+
+
+
+#Training/Test Splitting
+set.seed(330)
+fraction.train <- .7 # Enter Training Set Size
+fraction.valid <- 1 - fraction.train
+size.train <- fraction.train*nrow(forest.new)
+size.valid <- nrow(forest.new) - size.train
+indices.train <- sort(sample(seq_len(nrow(forest.new)), size=size.train))
+indices.valid <- setdiff(seq_len(nrow(forest.new)), indices.train)
+forest.train <- forest.new[indices.train,]
+forest.valid <- forest.new[indices.valid,]
+
+```
+
+# Exploratory Models - Feature Selection
+
+Next we will run a few exploratory models to help us understand the relationships in our data and help to evaluate the most important variables for feature selection.
+
+## Linear Discriminant Analysis
+
+Linear Discriminant Analysis tries to find a linear combination of the predictors that gives maximum separation between the centers of the data while at the same time minimizing the variation within each group of data. We ran an exploratory model on the data that returned the linear combinations of the original variables that were created to distinguish between the classes. The variables with large absolute values in the scalings are more likely to be influential. For this data, Elevation, Area4 and trans.zone27 seem to be among the important variables. The first discriminant function, LD1, achieves 73.85% of the separation of classes, with the second discriminant function, LD2, improving the separation by 18.19%. Therefore, to achieve a good separation of the classes, we should use both of the first two discriminant functions. 
+
+```{r}
+#Remove SoilTypes and Aspect, Slope and Hillsides
+forest.train.rm <- forest.train[,-c(2,3,4,7,8,9, 15:54,68:83)]
+```
+
+
+```{r}
+forest.train.rm <- forest.train.rm[,-5]
+```
+
+```{r}
+forest.train.rm$CoverType <- as.factor(forest.train.rm$CoverType)
+```
+
+
+```{r, eval=FALSE, warning=FALSE, error=FALSE}
+
+explore.lda <- train(CoverType ~ .,  data = forest.train.rm,
+                             method = "lda", 
+                             metric = "Kappa", 
+                             preProc = c("center", "scale"))
+
+```
+
+```{r}
+#saveRDS(explore.lda, "./explore.lda.rds")
+
+```
+
+```{r}
+explore.lda <- readRDS("./explore.lda.rds")
+```
+
+
+```{r}
+kable(explore.lda$finalModel$scaling, format="pandoc")
+```
+
+
+## Decision Tree
+
+The tree plot below shows the result of fitting a decision tree algorithm to all of our data, the purpose of which is to draw insights regarding predictor variables that could be most effective in building a predictive model. Each node in the tree shows the predicted class, the predicted probability of each class and the percentage of observations in the node. Our tree uses the variables Elevation, Trans.zone87 and Area3 to predict our classes.
+
+```{r, fig.cap="Tree Plot", fig.height=4}
+library(rpart)
+library(rpart.plot)
+rpart.plot(rpart(factor(forest.train.rm$CoverType) ~ ., data = forest.train.rm), main = "Tree Plot for Cover Type")
+```
+
+```{r, eval=FALSE}
+library(randomForest)
+set.seed(123)
+explore.rf <- randomForest(CoverType~.,
+                         data = forest.train.rm,
+                         ntree = 10, nodesize = 10, importance = TRUE)
+```
+
+```{r}
+#saveRDS(explore.rf, "./explore.rf.rds")
+
+```
+
+```{r}
+explore.rf <- readRDS("./explore.rf.rds")
+```
+
+## Random Forest
+
+The chart below shows the variables plotted by two measures of importance, Mean Decrease Accuracy and Mean Decrease Gini. Gini importance measures the average gain of purity by splits of a given variable.
+
+```{r, fig.cap="Variable Importance", warning=FALSE, message=FALSE}
+library(randomForest)
+varImpPlot(explore.rf, main = 'Variable Importance')
+```
+
+
+\newpage
+# Modeling Plan
+
+Based on our modeling problem and exploratory data analysis, we will run various classification algorithms that can predict more than two classes. We will try variations of the following algorithms, which will require different data preparations:
+
+## Discriminant Analysis 
+LDA assumes normal predictors and that the predictors have equal variance. LDA then estiamtes the mean and variance for the predictors for each class. There is no tuning parameter and the model is sensitive to highly correlated predictors and near-zero predictors. The data must also be centered and scaled.
+
+## Logistic Regression
+The model is sensitive to highly correlated predictors and near-zero predictors. The data must also be centered and scaled.
+
+## K-Nearest Neighbors
+Predictions are made for by searching through the entire training set for the K most similar instances and summarizing the most common class for those K instances. KNN is suited for lower dimensional data. We will need to center and scale predictors prior to performing KNN. The model is sensitive to near-zero predictors and the tuning parameter is k.
+
+## Random Forests
+Each tree in the forest casts a vote for the classification of a new sample, and the proportion of votes in each class across the ensemble is the predicted probability vector.  Tuning parameter is mtry, the number of variables randomly sampled as candidates at each split. No need to preprocess the data. 
+
+##Neural Network
+Rather than having one neuron in the output layer, have N binary neuron leading to multiclass classification. Classes are converted into binary indicators for N binary neurons. Tuning parameters are size and decay. The model is sensitive to highly correlated predictors and near-zero predictors. The data must also be centered and scaled.
+
+## Support Vector Machine
+A support vector machine algorithm an optimal hyperplane which categorizes new examples into a class. The tuning parameter is C, allows violation of the margins with C=0 allowing for no violation and higher variance and larger C resulting in a less sensitive algorithm. the The model requires centering and scaling of data.  
+
+## Predictors
+We will use various subsets of our predictor including: all, our most important predictors as informed by our EDA, and our reduced subsets created using PCA.
+
+```{r, eval=FALSE}
+explore.rf <- train(CoverType ~ .,  data = forest.train.rm,
+                             method = "rf", 
+                             metric = "Kappa", 
+                             importance = TRUE)
+```
+
+
+
+
+```{r}
+
+forest.transforms.colnames = colnames(forest.train)
+forest.modeling.colnames = forest.transforms.colnames
+idxs = grep("^Elevation|^Aspect|^Slope|^HDist|^VDist|^Hillshade|^Area|^SoilType",forest.modeling.colnames)
+forest.modeling.colnames[idxs] = paste("orig.",forest.transforms.colnames[idxs],sep = "")
+idxs = grep("^PC",forest.modeling.colnames)
+forest.modeling.colnames[idxs] = paste("pca.soil.",forest.transforms.colnames[idxs],sep = "")
+colnames(forest.train) = forest.modeling.colnames
+colnames(forest.valid) = forest.modeling.colnames
+
+forest.modeling.colidxs = grep("^orig.Elevation|^orig.Aspect|^orig.Slope|^orig|^VDist|^Hillshade|^Area|^SoilType",forest.modeling.colnames)
+
+```
+
+\newpage
+# Conclusion
+Our initial analysis for our forest cover type prediction problem included defining our modeling problem, doing a data quality and inventory check and performing a preliminary exploratory data analysis. The results of our data quality check showed that we had no missing data and gave us a cursory understanding of our data set. 
+
+
+Our preliminary exploratory analysis revealed some potentially useful predictors and helped us to understand the relationships in our data. Principal components analysis helped us narrow our soil variables down from 40 to 16 variables. Additionally, we prepared the data by creating a subset of 70% of the data to train our models on, and a validation set of 30% of the data to test those models on. Our next step will be to build our selected models using various subsets of our data, guided by our exploratory data analysis.
+
+
+
+```{r model prep}
+
+forest.transforms.colnames = colnames(forest.train)
+forest.modeling.colnames = forest.transforms.colnames
+idxs = grep("^Elevation|^Aspect|^Slope|^HDist|^VDist|^Hillshade|^Area|^SoilType",forest.modeling.colnames)
+forest.modeling.colnames[idxs] = paste("orig.",forest.transforms.colnames[idxs],sep = "")
+idxs = grep("^PC",forest.modeling.colnames)
+forest.modeling.colnames[idxs] = paste("pca.soil.",forest.transforms.colnames[idxs],sep = "")
+colnames(forest.train) = forest.modeling.colnames
+colnames(forest.valid) = forest.modeling.colnames
+
+forest.modeling.colidxs = grep("^orig.Elevation|^orig.Aspect|^orig.Slope|^orig|^VDist|^Hillshade|^Area|^SoilType",forest.modeling.colnames)
+
+forest.train$CoverType = as.factor(forest.train$CoverType)
+forest.valid$CoverType = as.factor(forest.valid$CoverType)
+idxs = grep("orig.Area|orig.SoilType|CoverType|trans.zone",colnames(forest.train))
+forest.train[,idxs] = lapply(forest.train[,idxs], as.factor)
+
+```
+
+```{r}
+forest.t = forest.train
+
+#one area variable
+idxs = grep("Elevation|LDist|shade.pca|Roadway|FirePoint|CoverType",colnames(forest.train))
+forest.t = data.frame(forest.train[,idxs])
+
+mat = as.matrix(forest.train[,grep("Area",colnames(forest.train))])
+forest.t$Area = factor(mat%*%(1:ncol(mat)), labels = colnames(mat)) 
+forest.t$CoverType = as.factor(forest.t$CoverType)
+
+# percentage by class before sampling
+forest.t.proptable = round(prop.table(table(forest.t1$CoverType)),digits = 3)
+
+m = SMOTE(CoverType ~ ., forest.t1, perc.over = 100, perc.under=100)
+
+r2 = round(prop.table(table(m$CoverType)),digits = 3)
+
+rbind(r1,r2)
+
+# train set 1: downsample all classes to lowest observation class count. 
+# 1,917 each, 13,300 total
+forest.t1 = as.data.frame(forest.t %>% group_by(CoverType) %>% sample_n(size = 1900))
+
+# train set 2: get 10,000 observations in all classes with up and down sampling
+forest.t1 
+match1 = forest.t$CoverType==4
+match2 = forest.t$CoverType==1
+matches = match1|match2
+sum1 = sum(match1)
+sum2 = sum(match2)
+percover = sum1/sum2 * 100
+temp = forest.t[matches,]
+temp$CoverType = as.numeric(temp$CoverType)
+temp$CoverType = as.factor(temp$CoverType)
+m = SMOTE(CoverType ~ ., temp, perc.under = 100)
+table(m$CoverType)
+
+```
+
+```{r random forest, eval=FALSE}
+library(randomForest)
+library(caret)
+
+library(doMC)
+registerDoMC(cores = 5)
+
+# temp make training set smaller.
+set.seed(444)
+forest.train = forest.train[sample(nrow(forest.train), 20000, replace = FALSE),]
+
+# setup
+preprocess = c("zv")
+control = trainControl(method="cv", number=10)
+metric = "Kappa"
+set.seed(444)
+mtry = floor(sqrt(ncol(forest.train) - 1))
+tunegrid = expand.grid(mtry=mtry, ntree=c(500,1000,1500))
+
+idxs = grep("^orig.Elevation|^orig.Aspect|^orig.Slope|^orig|^VDist|^Hillshade|^Area|^SoilType",colnames(forest.train))
+form = sapply(colnames(forest.train[,idxs]),function(x) {
+  return (paste(x,' + '))
+})
+form = trimws(paste(unlist(form), collapse=''))
+form = trimws(gsub('\\+$','',form))
+form = paste('CoverType ~ ',form)
+form = as.formula(form)
+
+# model.rf <- train(form, 
+#                   data      = forest.train, 
+#                   method    = "rf", 
+#                   metric    = metric, 
+#                   tuneGrid  = tunegrid, 
+#                   trControl = control,
+#                   preProc   = preprocess)
+
+df.rf = randomForest(CoverType~.,data=forest.train,mtry=9,importance=TRUE)
+varImpPlot(df.rf, main='Variable Importance from Random Forest', cex=0.8)
+
+```
+
+```{r neural network}
+
+```
+
+```{r svm}
+
+```
+
+```{r knn}
+
+```
+
+```{r logistic regression}
+
+```
+
+```{r discriminant analysis}
+
+```
+
+```{r ensemble}
+
+```
+
+<!--
+
+=======
+>>>>>>> update report with explore models
+# Comparison of Results
+
+# Conclusions
+
+# Bibliography
+
+-->
