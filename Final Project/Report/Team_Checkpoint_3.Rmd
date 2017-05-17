@@ -825,6 +825,7 @@ rm(list = c('sample4.tbl','forest.sample4','sample4.forest','sample4.pred'))
 # random sample of 39,917
 set.seed(444)
 sample5.forest = randomForest(CoverType~., data=sample_n(forest.train, 39917), importance=TRUE)
+sample5.forest = randomForest(CoverType~., data=sample_n(forest.train, 40000), importance=TRUE)
 sample5.pred = predict(sample5.forest, newdata = forest.valid)
 sample5.cm = confusionMatrix(sample5.pred, forest.valid$CoverType) 
 sample5.cm$overall[2]
@@ -833,6 +834,8 @@ sample5.cm$overall[2]
 sample.types = c('Sample1','Sample2','Sample3','Sample4','Sample5')
 sample.results = c(sample1.cm$overall[2],sample2.cm$overall[2],sample3.cm$overall[2],
                    sample4.cm$overall[2],sample5.cm$overall[2])
+sample.results = c(sample1.cm$overall[1],sample2.cm$overall[1],sample3.cm$overall[1],
+                   sample4.cm$overall[1],sample5.cm$overall[1])
 cbind(sample.types,sample.results)
 
 # SMOTE sample set
@@ -850,6 +853,13 @@ cbind(sample.types,sample.results)
 #df.rf = randomForest(CoverType~.,data=sample_n(forest.t,20300),importance=TRUE)
 #pred = predict(df.rf, newdata = forest.v)
 #confusionMatrix(pred,forest.v$CoverType) # kappa 0.7179
+
+```
+
+```{r}
+m = sample4.cm$table
+ms = apply(m,2,sum)
+round(apply(m,1,function(x) {return (x/ms)}),3)
 
 ```
 
