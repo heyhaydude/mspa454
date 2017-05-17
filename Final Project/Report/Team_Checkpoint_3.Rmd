@@ -21,7 +21,7 @@ output:
 knitr::opts_chunk$set(echo = FALSE)
 ```
 
-```{r, warning=FALSE, message=FALSE}
+```{r setup data 1, warning=FALSE, message=FALSE}
 # read in the data, create dataframe
 gz = gzfile('data/covtype.data.gz','rt') 
 forest.orig = read.csv(gz,header=F)
@@ -444,7 +444,7 @@ ggplot(forest, aes(x=Aspect)) +
 
 The distribution for Hillshade.12pm was noticeably skewed in the boxplots above, so we create a log transformation of Hillshade.12pm and  for later use in our models. Additionally we created an interaction variable using Vist.Hydrology and HDistHydrology. A linear distance variable was also created using the vertical and horizontal distance to hydrology variables.Additionally, soil types were grouped into Climatic and Geologic zones as a potential means to reduce the amount of SoilType variables used for various modeling techniques.
 
-```{r}
+```{r setup data 2}
 # transform Hillshade.12pm and Vdist.Hydrology
 forest.new= forest.orig
 
@@ -474,7 +474,7 @@ forest.new$trans.zone87 <- rowSums(forest.new[,c("SoilType35", "SoilType36","Soi
 
 Furthermore, we attempt to reduce the variable complexity of 40 soil variables with principal component analysis. We found that 90.7% of the variance can be explained with 16 variables instead of 40. Similar analysis using 6 of 10 Soil Zones explains 99.2% of variation. This may help with modeling efforts the rely on reducing model complexity.
 
-```{r}
+```{r setup data 3}
 
 #PCA
 set.seed(444)
@@ -508,7 +508,7 @@ rm(list = c(temp.soil, temp.zone))
 
 The correlation plot below also shows high correlations between Hillshade, Aspect, and Slope. By performing PCA analysis we are able to reduce 5 variables down to 3, with 0 correlation and explaining 99.7% of the variance. This is highly likely to be useful for models that need to minimize highly correlated variables.
 
-```{r, fig.cap="PCA Correlation", fig.height=4}
+```{r setup data 4, fig.cap="PCA Correlation", fig.height=4}
 
 idxs = grep("Aspect|Hillshade|Slope", colnames(forest.numeric))
 temp = forest.new[,idxs]
@@ -544,26 +544,13 @@ idxs.nzv = nzv(forest.new)
 
 We have split our data into 70/30 training-testing set so that we could evaluate the performance of our models.
 
-```{r}
+```{r setup data 5}
 idxs_trans = grep("trans", colnames(forest.new))
 forest.transforms= forest.new[,idxs_trans]
 idxs_pca = grep("PC|shade.pca", colnames(forest.new))
 forest.pca= forest.new[,idxs_pca]
 idxs_buck = grep("buck", colnames(forest.new))
 forest.bucketing= forest[,idxs_buck]
-
-
-
-#Training/Test Splitting
-set.seed(330)
-fraction.train <- .7 # Enter Training Set Size
-fraction.valid <- 1 - fraction.train
-size.train <- fraction.train*nrow(forest.new)
-size.valid <- nrow(forest.new) - size.train
-indices.train <- sort(sample(seq_len(nrow(forest.new)), size=size.train))
-indices.valid <- setdiff(seq_len(nrow(forest.new)), indices.train)
-forest.train <- forest.new[indices.train,]
-forest.valid <- forest.new[indices.valid,]
 
 ```
 
@@ -650,14 +637,87 @@ library(randomForest)
 varImpPlot(explore.rf, main = 'Variable Importance')
 ```
 
+
+```{r setup all data, eval=FALSE, echo=FALSE, message=F, error=F, warning=F}
+
+# read in the data, create dataframe
+gz = gzfile('data/covtype.data.gz','rt') 
+forest.orig = read.csv(gz,header=F)
+forest.orig.colnames = t(read.csv('data/covtyp.colnames.csv',header=F))
+colnames(forest.orig) = forest.orig.colnames
+forest.var.continuous = c('Elevation','Aspect','Slope', 'HDist.Hydrology', 'VDist.Hydrology', 
+                          'HDist.Roadway', 'Hillshade.9am', 'Hillshade.12pm', 'Hillshade.3pm',
+                          'HDist.FirePoint')
+library(lattice)
+library(ggplot2)
+library(corrplot)
+library(MASS)
+library(caret)
+library(car)
+library(DMwR)
+library(dplyr)
+library(doMC)
+library(randomForest)
+registerDoMC(cores = 5)
+
+forest.new= forest.orig
+forest.new$trans.LDist.Hydrology <- sqrt(forest.new$VDist.Hydrology^2 + forest.new$HDist.Hydrology^2) 
+
+forest.new$trans.zone27 <- rowSums(forest.new[,c("SoilType1", "SoilType2","SoilType3","SoilType4", "SoilType5","SoilType6")])
+forest.new$trans.zone35 <- rowSums(forest.new[,c("SoilType7", "SoilType8")])
+forest.new$trans.zone42 <- forest.new$SoilType9
+forest.new$trans.zone47 <- rowSums(forest.new[,c("SoilType10", "SoilType11","SoilType12","SoilType13")])
+forest.new$trans.zone51 <- rowSums(forest.new[,c("SoilType14", "SoilType15")])
+forest.new$trans.zone61 <- rowSums(forest.new[,c("SoilType16", "SoilType17")])
+forest.new$trans.zone67 <- forest.new$SoilType18
+forest.new$trans.zone71 <- rowSums(forest.new[,c("SoilType19", "SoilType20","SoilType21")])
+forest.new$trans.zone72 <- rowSums(forest.new[,c("SoilType22", "SoilType23")])
+forest.new$trans.zone77 <- rowSums(forest.new[,c("SoilType24", "SoilType25","SoilType26","SoilType27", 
+                                                 "SoilType28", "SoilType29", "SoilType30","SoilType31",
+                                                 "SoilType32", "SoilType33", "SoilType34")])
+forest.new$trans.zone87 <- rowSums(forest.new[,c("SoilType35", "SoilType36","SoilType37","SoilType38",
+                                                 "SoilType39","SoilType40")])
+
+set.seed(444)
+idxs.soil = grep("Soil", colnames(forest.new))
+temp.soil = forest.new[,idxs.soil]
+soil.pca = prcomp(temp.soil, scale = F)
+soil.pca.x = soil.pca$x
+colnames(soil.pca.x) <- c(paste0("soil.pca.pc",as.character(1:ncol(soil.pca.x))))
+forest.new <- cbind(forest.new, soil.pca.x[,1:16]) #90.7% of importantance
+idxs.zone = grep("trans.zone", colnames(forest.new))
+temp.zone = forest.new[,idxs.zone]
+zone.pca = prcomp(temp.zone, scale = F)
+zone.pca.x = zone.pca$x
+colnames(zone.pca.x) <- c(paste0("zone.pca.pc",as.character(1:ncol(zone.pca.x))))
+forest.new <- cbind(forest.new, zone.pca.x[,1:6]) #99.7% of importantance
+rm(list = c('temp.soil', 'temp.zone'))
+
+idxs = grep("Aspect|Hillshade|Slope", colnames(forest.new))
+temp = forest.new[,idxs]
+shadeslope.pca = prcomp(temp, scale = F)
+shadeslope.pca.x = shadeslope.pca$x
+colnames(shadeslope.pca.x) = c('shade.pca.pc1','shade.pca.pc2','shade.pca.pc3','shade.pca.pc4','shade.pca.pc5')
+forest.new <- cbind(forest.new, shadeslope.pca.x[,1:3]) #99.7% of important
+
+idxs_trans = grep("trans", colnames(forest.new))
+forest.transforms= forest.new[,idxs_trans]
+idxs_pca = grep("PC|shade.pca", colnames(forest.new))
+forest.pca= forest.new[,idxs_pca]
+#idxs_buck = grep("buck", colnames(forest.new))
+#forest.bucketing= forest[,idxs_buck]
+
+rm(list = c('temp.soil', 'temp.zone', 'forest.pca', 'forest.transforms', 'shadeslope.pca.x',
+            'forest.bucketing', 'soil.pca.x', 'temp', 'zone.pca.x', 'forest', 'forest.numeric',
+            'forest.pca', 'idxs_pca', 'idxs_buck', 'idxs_trans', 'idxs.soil', 'idxs.zone',
+            'shadeslope.pca', 'soil.pca', 'zone.pca', 'gz'))
+
+```
+
+
 ```{r modeling setup}
 
 forest.model = forest.new
-
-### clear out some of the memory not needed anymore
-rm(list = c(forest, forest.numeric, forest.pca, forest.scaled, forest.transforms, soil.pca.x, 
-            shadeslope.pca.x, forest.bucketing))
-
 
 ### update forest.new with any renames or consolidations
 # rename some predictors
@@ -699,7 +759,7 @@ indices.valid = setdiff(seq_len(nrow(forest.model)), indices.train)
 forest.train = forest.model[indices.train,]
 forest.valid = forest.model[indices.valid,]
 
-rm(list = c(indices.train, indices.valid, size.train, size.valid))
+rm(list = c('indices.train', 'indices.valid', 'size.train', 'size.valid'))
 
 ```
 
