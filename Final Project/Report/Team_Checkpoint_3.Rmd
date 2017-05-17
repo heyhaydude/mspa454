@@ -690,7 +690,7 @@ idxs = grep("Area|SoilType|CoverType|trans.zone",colnames(forest.model))
 forest.model[,idxs] = lapply(forest.model[,idxs], as.factor)
 
 # remove the unwanted variables for modeling
-idxs = grep("^SoilType|^Aspect|^Hillshade|^Slope|^HDist.Hydrology|VDist.Hydrology",colnames(forest.model))
+idxs = grep("^SoilType|^Aspect|^Hillshade|^Slope|^HDist.Hydrology|VDist.Hydrology|soil.pca|zone.pca",colnames(forest.model))
 forest.model[,idxs] = NULL
 
 #Training/Test Splitting
@@ -725,7 +725,7 @@ set.seed(444)
 forest.sample1 = as.data.frame(forest.train %>% group_by(CoverType) %>% sample_n(size = 1917))
 sample1.forest = randomForest(CoverType~.,data=forest.sample1,importance=TRUE)
 sample1.pred = predict(sample1.forest, newdata = forest.valid)
-sample1.cm = confusionMatrix(sample1.pred,forest.valid$CoverType) # kappa 0.5283
+sample1.cm = confusionMatrix(sample1.pred,forest.valid$CoverType) 
 sample1.cm$overall[2]
 rm(list = c('forest.sample1','sample1.forest','sample1.pred'))
 
@@ -733,7 +733,7 @@ rm(list = c('forest.sample1','sample1.forest','sample1.pred'))
 set.seed(444)
 sample2.forest = randomForest(CoverType~.,data=sample_n(forest.train,13300),importance=TRUE)
 sample2.pred = predict(sample2.forest, newdata = forest.valid)
-sample2.cm = confusionMatrix(sample2.pred, forest.valid$CoverType) # kappa 0.6378
+sample2.cm = confusionMatrix(sample2.pred, forest.valid$CoverType) 
 sample2.cm$overall[2]
 rm(list = c('sample2.forest','sample2.pred'))
 
@@ -743,7 +743,7 @@ set.seed(444)
 forest.sample3 = as.data.frame(forest.train %>% group_by(CoverType) %>% sample_n(size = 5000,replace=TRUE))
 sample3.forest = randomForest(CoverType~.,data=forest.sample3,importance=TRUE)
 sample3.pred = predict(sample3.forest, newdata = forest.valid)
-sample3.cm = confusionMatrix(sample3.pred, forest.valid$CoverType) # kappa 
+sample3.cm = confusionMatrix(sample3.pred, forest.valid$CoverType) 
 sample3.cm$overall[2]
 rm(list = c('forest.sample3','sample3.forest','sample3.pred'))
 
@@ -764,16 +764,16 @@ for (i in 1:7) {
 set.seed(444)
 sample4.forest = randomForest(CoverType~., data=forest.sample4, importance=TRUE)
 sample4.pred = predict(sample4.forest, newdata = forest.valid)
-sample4.cm = confusionMatrix(sample4.pred, forest.valid$CoverType) # kappa 0.635
+sample4.cm = confusionMatrix(sample4.pred, forest.valid$CoverType) 
 sample4.cm$overall[2]
 rm(list = c('sample4.tbl','forest.sample4','sample4.forest','sample4.pred'))
 
 
 # random sample of 39,917
 set.seed(444)
-sample5.forest = randomForest(CoverType~., data=sample_n(forest.train,39917), importance=TRUE)
+sample5.forest = randomForest(CoverType~., data=sample_n(forest.train, 39917), importance=TRUE)
 sample5.pred = predict(sample5.forest, newdata = forest.valid)
-sample5.cm = confusionMatrix(sample5.pred, forest.valid$CoverType) # kappa 0.6646
+sample5.cm = confusionMatrix(sample5.pred, forest.valid$CoverType) 
 sample5.cm$overall[2]
 
 
