@@ -501,8 +501,8 @@ plot(summary(zone.pca)$importance[3,], xlab="Principal Components", ylab="Import
      main="Soil Zone PCA Importance Plot", pch=20, col="blue")
 par(mfrow=c(1,1))
 
-temp.soil = NULL
-temp.zone = NULL
+rm(list = c(temp.soil, temp.zone))
+
 ```
 
 
@@ -655,14 +655,9 @@ varImpPlot(explore.rf, main = 'Variable Importance')
 forest.model = forest.new
 
 ### clear out some of the memory not needed anymore
-forest = NULL
-forest.numeric = NULL
-forest.pca = NULL
-forest.scaled = NULL
-forest.transforms = NULL
-soil.pca.x = NULL
-shadeslope.pca.x = NULL
-forest.bucketing = NULL
+rm(list = c(forest, forest.numeric, forest.pca, forest.scaled, forest.transforms, soil.pca.x, 
+            shadeslope.pca.x, forest.bucketing))
+
 
 ### update forest.new with any renames or consolidations
 # rename some predictors
@@ -703,10 +698,8 @@ indices.train = sort(sample(seq_len(nrow(forest.model)), size=size.train))
 indices.valid = setdiff(seq_len(nrow(forest.model)), indices.train)
 forest.train = forest.model[indices.train,]
 forest.valid = forest.model[indices.valid,]
-indices.train = NULL
-indices.valid = NULL
-size.train = NULL
-size.valid = NULL
+
+rm(list = c(indices.train, indices.valid, size.train, size.valid))
 
 ```
 
