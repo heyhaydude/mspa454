@@ -955,7 +955,74 @@ varImpPlot(df.rf, main='Variable Importance from Random Forest', cex=0.8)
 ```
 
 ```{r knn}
+library(class)
+library(caret)
+library(knncat)
 
+# temp make training set smaller.
+set.seed(444)
+forest.train2 <- forest.train[sample(nrow(forest.train), 10000, replace = FALSE),]
+
+
+#Removing CoverType and Forest Zone Variables from model for now.
+#Researching how to treat them
+forest.train.x <- forest.train2[,-c(4,9,10)]
+forest.train.y <- forest.train2[,9]
+forest.valid.x <- forest.valid[,-c(4,9,10)]
+forest.valid.y <- forest.valid[,9]
+
+
+#normalize and standardize training data
+df.mean.train <- apply(forest.train.x, 2, mean)
+df.sd.train <- apply(forest.train.x, 2, sd)
+df.std.train <- t((t(forest.train.x)-df.mean.train)/df.sd.train) #standardize to have 0 mean and unit sd
+apply(df.std.train, 2, mean) # check zero mean
+apply(df.std.train, 2, sd) # check unit sd
+
+
+forest.train3 <-df.std.train
+forest.train3 <- cbind(df.std.train,
+                       forest.train2$CoverType, 
+                      forest.train2$forest.area,
+                      forest.train2$forest.zone)
+colnames(forest.train3)[8] <- "CoverType"
+colnames(forest.train3)[9] <- "forest.area"
+colnames(forest.train3)[10] <- "forest.zone"
+forest.train3 <- as.data.frame(forest.train3)
+forest.train3$CoverType <- as.factor(forest.train3$CoverType)
+forest.train3$forest.area <- as.factor(forest.train3$forest.area)
+forest.train3$forest.zone <- as.factor(forest.train3$forest.zone)
+
+#normalize and standardize validation data
+df.mean.valid <- apply(forest.valid.x, 2, mean)
+df.sd.valid <- apply(forest.valid.x, 2, sd)
+df.std.valid <- t((t(forest.valid.x)-df.mean.valid)/df.sd.valid) #standardize to have 0 mean and unit sd
+apply(df.std.valid, 2, mean) # check zero mean
+apply(df.std.valid, 2, sd) # check unit sd
+
+forest.valid3 <- df.std.valid
+forest.valid3 <- cbind(df.std.valid,
+                       forest.valid$CoverType, 
+                       forest.valid$forest.area,
+                       forest.valid$forest.zone)
+colnames(forest.valid3)[8] <- "CoverType"
+colnames(forest.valid3)[9] <- "forest.area"
+colnames(forest.valid3)[10] <- "forest.zone"
+forest.valid3 <- as.data.frame(forest.valid3)
+forest.valid3$CoverType <- as.factor(forest.valid3$CoverType)
+forest.valid3$forest.area <- as.factor(forest.valid3$forest.area)
+forest.valid3$forest.zone <- as.factor(forest.valid3$forest.zone)
+
+
+
+#Gettin' To Modelin'...finally
+pred <-knncat(forest.train3, 
+              forest.valid3,
+              classcol = 9,
+              k= c(2,3,4,5,6,7,8,9,10), #values of K to test
+              xvals = 5) #cross-validation folds
+pred$best.k
+pred$misclass.mat
 ```
 
 ```{r logistic regression}
