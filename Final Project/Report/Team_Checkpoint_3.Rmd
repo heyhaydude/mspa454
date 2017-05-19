@@ -74,6 +74,7 @@ library(DMwR)
 library(dplyr)
 library(doMC)
 library(randomForest)
+library(nnet)
 registerDoMC(cores = 5)
 
 ```
@@ -824,7 +825,7 @@ rm(list = c('sample4.tbl','forest.sample4','sample4.forest','sample4.pred'))
 
 # random sample of 39,917
 set.seed(444)
-sample5.forest = randomForest(CoverType~., data=sample_n(forest.train, 39917), importance=TRUE)
+#sample5.forest = randomForest(CoverType~., data=sample_n(forest.train, 39917), importance=TRUE)
 sample5.forest = randomForest(CoverType~., data=sample_n(forest.train, 40000), importance=TRUE)
 sample5.pred = predict(sample5.forest, newdata = forest.valid)
 sample5.cm = confusionMatrix(sample5.pred, forest.valid$CoverType) 
@@ -960,6 +961,32 @@ varImpPlot(df.rf, main='Variable Importance from Random Forest', cex=0.8)
 ```
 
 ```{r neural network}
+
+n = names(forest.model)
+f = as.formula(paste("CoverType ~", paste(n[!n %in% "CoverType"], collapse = " + ")))
+m = model.matrix( f , data=forest.model)[,-1]
+m = cbind(m, forest.model$CoverType)
+colnames(m)[ncol(m)] = "CoverType"
+n = colnames(m)
+f = as.formula(paste("CoverType ~", paste(n[!n %in% "CoverType"], collapse = " + ")))
+forest.nn1 = neuralnet(f,data=m, hidden=4, linear.output=FALSE)
+
+n = names(forest.valid)
+f = as.formula(paste("CoverType ~", paste(n[!n %in% "CoverType"], collapse = " + ")))
+m.test = model.matrix( f , data=forest.valid)[,-1]
+m.test = cbind(m.test, forest.valid$CoverType)
+colnames(m.test)[ncol(m.test)] = "CoverType"
+forest.nn1.pred = compute(forest.nn1, m.test[,1:ncol(m.test)-1])
+forest.nn1.pred = compute(forest.nn1,forest.valid)
+
+library(nnet)
+
+set.seed(444)
+forest.model = sample_n(forest.train, 40000)
+forest.nn1 = nnet(CoverType ~ . , data=forest.model, linout=FALSE, size=5, maxit=2000, decay=0.01, trace=FALSE)
+idx = grep("CoverType", colnames(forest.valid))
+forest.nn1.pred = predict(forest.nn1, newdata=forest.valid[,-idx], type="class")
+forest.nn1.cm = confusionMatrix(data=forest.nn1.pred, reference=forest.valid$CoverType)
 
 ```
 
