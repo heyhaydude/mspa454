@@ -430,7 +430,7 @@ ggplot(forest, aes(x=HDist.Hydrology)) +
 ```
 
 \newpage
-Figure 10 shows the contrasting relationship between Hillshade.9am and Hillshade.3pm.
+Figure 10 shows the contrasting relationship between Hillshade.9am and Hillshade.3pm over varying aspect values. We see that between 0 and 200 degrees, hillshade varies significantly between 9am and 3pm, but between 200 and 360 degrees, hillshade between 9am and 3pm are relatively the same.
 
 ```{r, fig.cap="Hillshade.9am and Hillshade.3pm"}
 ggplot(forest, aes(x=Aspect)) + 
