@@ -859,7 +859,20 @@ cbind(sample.types,sample.results)
 ```{r}
 m = sample4.cm$table
 ms = apply(m,2,sum)
-round(apply(m,1,function(x) {return (x/ms)}),3)
+mss = round(apply(m,1,function(x) {return (x/ms)}),2)
+mss
+
+corrplot(mss, 
+         tl.col = "black", 
+         tl.cex = 0.8, 
+         tl.srt = 0,
+         cl.cex = 0.8,
+         pch.cex = 0.8, 
+         diag = TRUE,
+         type="full",
+         addCoefasPercent = TRUE, 
+         addCoef.col = TRUE,
+         number.cex = .6) #Matt added to show correlation amounts
 
 ```
 
