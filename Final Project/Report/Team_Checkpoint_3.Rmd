@@ -803,7 +803,7 @@ To accomplish this, we attempted the following samples:
 4. a tiered selection of observations, using all observations from low volume types, and using a higher sampling from the more popular types
 5. a random sampling of 40,000
 
-An analysis of comparing the kappa values on a random forest model of these samples shows that a random sampling of 40,000 performs the best. Though common sense will tell us to include all observations of the less popular cover types. Therefore the sampling used in this modeling will include a tiered seleciton of observations with approximately 40,000 observations in all.
+An analysis of comparing the kappa values on a random forest model of these samples shows that a random sampling of 40,000 performs the best. Though common sense will tell us to include all observations of the less popular cover types. Therefore the sampling used in this modeling will include a tiered selection of observations with approximately 40,000 observations in all.
 
 ```{r sampling}
 
@@ -1000,10 +1000,13 @@ varImpPlot(df.rf, main='Variable Importance from Random Forest', cex=0.8)
 
 ```
 
+For modeling with a neural network, there are several variations that can impact the effectiveness of the model. These include the learning rate, the number of layers in the neural network, and the number of nodes in each layer. Several models were investigated changing these parameters. Additionally, we attempted to use different variables in the modeling. The best perform of the neural networks was: 
+
+
 ```{r neural network}
 library(nnet)
 
-build = FALSE
+build = TRUE
 
 # model without soil info, 5 nodes, 0.01 decay
 set.seed(444)
@@ -1078,18 +1081,21 @@ forest.nn4.accuracy = forest.nn4.cm$overall[1]
 #model with soil info, two layer (5,2) nodes, 0.01 decay
 library(neuralnet)
 set.seed(444)
-m = dummyVars(" ~ .", data = forest.train4)
+forest.nn5.model = forest.train4
+idxs = grep("forest.zone", colnames(forest.nn5.model))
+m = dummyVars(" ~ .", data = forest.train4[,-idxs])
 m = predict(m, newdata = forest.train4)
 # remove one each of the factor predictors, but leave all of the CoverType factors
-m$forest.area.Area1 = NULL
-m$forest.zone.trans.zone27 = NULL
+n = colnames(m)
+idxs = grep("forest.area.Area1", n)
+m = m[,-idxs]
 n = colnames(m)
 left = paste(n[grep("CoverType",n)], collapse = " + ")
 right = paste(n[-grep("CoverType",n)], collapse = " + ")
 fnn = as.formula(paste(left, right, sep = " ~ "))
 
 if (build) {
-  forest.nn5 = neuralnet(fnn, data=m, hidden=5, linear.output=FALSE, learningrate = 0.01)
+  forest.nn5 = neuralnet(fnn, data=m, hidden=c(5,3), linear.output=FALSE, learningrate = 0.01)
   saveRDS(forest.nn2, "./forest.nn5")
 } else {
   forest.nn5 = readRDS("./forest.nn5")
@@ -1100,6 +1106,8 @@ m.test = predict(m, newdata = forest.valid4)
 m.test$forest.area.Area1 = NULL
 m.test$forest.zone.trans.zone27 = NULL
 forest.nn5.pred = compute(forest.nn5, m.test[,1:ncol(m.test)-1])$net.result
+
+### add code for the best nn performer's accuracy, kappa, f1, and boxplot of f1
 
 ```
 
