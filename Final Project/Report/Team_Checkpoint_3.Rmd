@@ -745,10 +745,6 @@ forest.model[,idxs] = NULL
 idxs = grep("Area|SoilType|CoverType|trans.zone",colnames(forest.model))
 forest.model[,idxs] = lapply(forest.model[,idxs], as.factor)
 
-# remove the unwanted variables for modeling
-idxs = grep("^SoilType|^Aspect|^Hillshade|^Slope|^HDist.Hydrology|VDist.Hydrology|soil.pca|zone.pca",colnames(forest.model))
-forest.model[,idxs] = NULL
-
 #Training/Test Splitting
 set.seed(330)
 fraction.train = .7 # Enter Training Set Size
@@ -757,13 +753,29 @@ size.train = fraction.train*nrow(forest.model)
 size.valid = nrow(forest.model) - size.train
 indices.train = sort(sample(seq_len(nrow(forest.model)), size=size.train))
 indices.valid = setdiff(seq_len(nrow(forest.model)), indices.train)
-forest.train = forest.model[indices.train,]
-forest.valid = forest.model[indices.valid,]
+
+# create a couple versions of the model to try out with the algorithms
+forest.model1 = forest.model # bare bones model without Soil anything
+forest.model2 = forest.model # bare bones model with Soil pca
+
+# remove the unwanted variables for modeling
+idxs = grep("^SoilType|^Aspect|^Hillshade|^Slope|^HDist.Hydrology|VDist.Hydrology|soil.pca|zone.pca",colnames(forest.model))
+forest.model1[,idxs] = NULL
+
+idxs = grep("^Aspect|^Hillshade|^Slope|^HDist.Hydrology|VDist.Hydrology|soil.pca|zone.pca",colnames(forest.model))
+forest.model2[,idxs] = NULL
+
+forest.train1 = forest.model1[indices.train,]
+forest.valid1 = forest.model1[indices.valid,]
+
+forest.train2 = forest.model2[indices.train,]
+forest.valid2 = forest.model2[indices.valid,]
 
 rm(list = c('indices.train', 'indices.valid', 'size.train', 'size.valid'))
 
 ```
 
+(Write up how we chose which sampling to use)
 
 ```{r sampling}
 
@@ -962,31 +974,23 @@ varImpPlot(df.rf, main='Variable Importance from Random Forest', cex=0.8)
 
 ```{r neural network}
 
-n = names(forest.model)
-f = as.formula(paste("CoverType ~", paste(n[!n %in% "CoverType"], collapse = " + ")))
-m = model.matrix( f , data=forest.model)[,-1]
-m = cbind(m, forest.model$CoverType)
-colnames(m)[ncol(m)] = "CoverType"
-n = colnames(m)
-f = as.formula(paste("CoverType ~", paste(n[!n %in% "CoverType"], collapse = " + ")))
-forest.nn1 = neuralnet(f,data=m, hidden=4, linear.output=FALSE)
-
-n = names(forest.valid)
-f = as.formula(paste("CoverType ~", paste(n[!n %in% "CoverType"], collapse = " + ")))
-m.test = model.matrix( f , data=forest.valid)[,-1]
-m.test = cbind(m.test, forest.valid$CoverType)
-colnames(m.test)[ncol(m.test)] = "CoverType"
-forest.nn1.pred = compute(forest.nn1, m.test[,1:ncol(m.test)-1])
-forest.nn1.pred = compute(forest.nn1,forest.valid)
-
 library(nnet)
 
 set.seed(444)
-forest.model = sample_n(forest.train, 40000)
-forest.nn1 = nnet(CoverType ~ . , data=forest.model, linout=FALSE, size=5, maxit=2000, decay=0.01, trace=FALSE)
+idxs = grep("Elevation|HDist.Roadway|HDist.FirePoint|CoverType|trans.LDist.Hydrology|shade.pca|forest.area|forest.zone",colnames(forest.train))
+forest.model.nn1 = sample_n(forest.train[,idxs], 40000)
+forest.nn1 = nnet(CoverType ~ . , data=forest.model[,idxs], linout=FALSE, size=5, maxit=2000, decay=0.01, trace=FALSE)
 idx = grep("CoverType", colnames(forest.valid))
 forest.nn1.pred = predict(forest.nn1, newdata=forest.valid[,-idx], type="class")
 forest.nn1.cm = confusionMatrix(data=forest.nn1.pred, reference=forest.valid$CoverType)
+rm(forest.model.nn1)
+
+idxs = grep("Elevation|HDist.Roadway|HDist.FirePoint|CoverType|trans.LDist.Hydrology|shade.pca|forest.area|forest.zone",colnames(forest.train))
+sample(forest.train)
+n = names(forest.train[,idxs])
+f = as.formula(paste("CoverType ~", paste(n[!n %in% "CoverType"], collapse = " + ")))
+forest.nn2 = pcaNNet(f, forest.train[,idxs], size = 5, linout = FALSE, trace = FALSE, thresh = 0.9)
+forest.model.nn2 = sample
 
 ```
 
