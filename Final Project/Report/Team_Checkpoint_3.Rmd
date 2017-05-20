@@ -762,7 +762,7 @@ forest.model2 = forest.model # bare bones model with Soil pca
 idxs = grep("^SoilType|^Aspect|^Hillshade|^Slope|^HDist.Hydrology|VDist.Hydrology|soil.pca|zone.pca",colnames(forest.model))
 forest.model1[,idxs] = NULL
 
-idxs = grep("^Aspect|^Hillshade|^Slope|^HDist.Hydrology|VDist.Hydrology|soil.pca|zone.pca",colnames(forest.model))
+idxs = grep("^Aspect|^Hillshade|^Slope|^HDist.Hydrology|VDist.Hydrology|^SoilType|zone.pca",colnames(forest.model))
 forest.model2[,idxs] = NULL
 
 forest.train1 = forest.model1[indices.train,]
@@ -771,11 +771,39 @@ forest.valid1 = forest.model1[indices.valid,]
 forest.train2 = forest.model2[indices.train,]
 forest.valid2 = forest.model2[indices.valid,]
 
+# model that makes sure the low model types are always present in a sample
+set.seed(444)
+sample4.tbl = table(forest.model2$CoverType)
+forest.model4 = sample_n(forest.model2[forest.model2$CoverType==4,], 1917)
+for (i in 1:7) {
+  cnt = sample4.tbl[i]
+  if (cnt > 100000) {
+    forest.model4 = rbind(forest.model4, sample_n(forest.model2[forest.model2$CoverType==i,],20000))
+  } else if (cnt > 10000) {
+    forest.model4 = rbind(forest.model4, sample_n(forest.model2[forest.model2$CoverType==i,],5000))
+  } else if (cnt > 3000) {
+    forest.model4 = rbind(forest.model4, sample_n(forest.model2[forest.model2$CoverType==i,],3000))
+  }
+}
+forest.train4 = forest.model4[indices.train,]
+forest.valid4 = forest.model4[indices.valid,]
+
+
 rm(list = c('indices.train', 'indices.valid', 'size.train', 'size.valid'))
 
 ```
 
-(Write up how we chose which sampling to use)
+In order to perform an initial analysis of the various models, we will use a sample of the training data. Once we have honed in on the correct tuning parameters for the models, we will run the models against the full dataset. This is an important step towards making the modeling process perform faster.
+
+To accomplish this, we attempted the following samples:
+
+1. 1900 observations from each class
+2. random sample of 13,000
+3. 5000 observations from each class with replacement
+4. a tiered selection of observations, using all observations from low volume types, and using a higher sampling from the more popular types
+5. a random sampling of 40,000
+
+An analysis of comparing the kappa values on a random forest model of these samples shows that a random sampling of 40,000 performs the best. Though common sense will tell us to include all observations of the less popular cover types. Therefore the sampling used in this modeling will include a tiered seleciton of observations with approximately 40,000 observations in all.
 
 ```{r sampling}
 
@@ -820,7 +848,7 @@ forest.sample4 = sample_n(forest.train[forest.train$CoverType==4,], 1917)
 for (i in 1:7) {
   cnt = sample4.tbl[i]
   if (cnt > 100000) {
-    forest.sample4 = rbind(forest.sample4, sample_n(forest.train[forest.train$CoverType==i,],10000))
+    forest.sample4 = rbind(forest.sample4, sample_n(forest.train[forest.train$CoverType==i,],20000))
   } else if (cnt > 10000) {
     forest.sample4 = rbind(forest.sample4, sample_n(forest.train[forest.train$CoverType==i,],5000))
   } else if (cnt > 3000) {
@@ -976,21 +1004,69 @@ varImpPlot(df.rf, main='Variable Importance from Random Forest', cex=0.8)
 
 library(nnet)
 
+# model without soil info, 5 nodes, 0.01 decay
 set.seed(444)
-idxs = grep("Elevation|HDist.Roadway|HDist.FirePoint|CoverType|trans.LDist.Hydrology|shade.pca|forest.area|forest.zone",colnames(forest.train))
-forest.model.nn1 = sample_n(forest.train[,idxs], 40000)
-forest.nn1 = nnet(CoverType ~ . , data=forest.model[,idxs], linout=FALSE, size=5, maxit=2000, decay=0.01, trace=FALSE)
+forest.model.nn1 = sample_n(forest.train1, 40000)
+forest.nn1 = nnet(CoverType ~ . , data=forest.model.nn1, linout=FALSE, size=5, maxit=2000, decay=0.01, trace=FALSE)
 idx = grep("CoverType", colnames(forest.valid))
-forest.nn1.pred = predict(forest.nn1, newdata=forest.valid[,-idx], type="class")
-forest.nn1.cm = confusionMatrix(data=forest.nn1.pred, reference=forest.valid$CoverType)
-rm(forest.model.nn1)
+forest.nn1.pred = predict(forest.nn1, newdata=forest.valid1[,-idx], type="class")
+forest.nn1.cm = caret::confusionMatrix(forest.nn1.pred, reference=forest.valid1$CoverType)
+forest.nn1.kappa = forest.nn1.cm$overall[2]
+forest.nn1.accuracy = forest.nn1.cm$overall[1]
 
-idxs = grep("Elevation|HDist.Roadway|HDist.FirePoint|CoverType|trans.LDist.Hydrology|shade.pca|forest.area|forest.zone",colnames(forest.train))
-sample(forest.train)
-n = names(forest.train[,idxs])
-f = as.formula(paste("CoverType ~", paste(n[!n %in% "CoverType"], collapse = " + ")))
-forest.nn2 = pcaNNet(f, forest.train[,idxs], size = 5, linout = FALSE, trace = FALSE, thresh = 0.9)
-forest.model.nn2 = sample
+#forest.model.nn2 = sample_n(forest.train2, 40000)
+#n = names(forest.train2)
+#f = as.formula(paste("CoverType ~", paste(n[!n %in% "CoverType"], collapse = " + ")))
+#forest.nn2 = pcaNNet(f, forest.model.nn2, size = 5, linout = FALSE, trace = FALSE)
+
+#model with soil info, 5 nodes, 0.01 decay
+set.seed(444)
+forest.model.nn2 = sample_n(forest.train2, 40000)
+forest.nn2 = nnet(CoverType ~ . , data=forest.model.nn2, linout=FALSE, size=5, maxit=2000, decay=0.01, trace=FALSE)
+idx = grep("CoverType", colnames(forest.valid))
+forest.nn2.pred = predict(forest.nn2, newdata=forest.valid2[,-idx], type="class")
+forest.nn2.cm = caret::confusionMatrix(data=forest.nn2.pred, reference=forest.valid2$CoverType)
+forest.nn2.kappa = forest.nn2.cm$overall[2]
+forest.nn2.accuracy = forest.nn2.cm$overall[1]
+
+#model with soil info, 9 nodes, 0.01 decay
+set.seed(444)
+forest.model.nn3 = sample_n(forest.train2, 40000)
+forest.nn3 = nnet(CoverType ~ . , data=forest.model.nn3, linout=FALSE, size=9, maxit=2000, decay=0.01, trace=FALSE)
+idx = grep("CoverType", colnames(forest.valid))
+forest.nn3.pred = predict(forest.nn3, newdata=forest.valid2[,-idx], type="class")
+forest.nn3.cm = caret::confusionMatrix(data=forest.nn3.pred, reference=forest.valid2$CoverType)
+forest.nn3.kappa = forest.nn3.cm$overall[2]
+forest.nn3.accuracy = forest.nn3.cm$overall[1]
+
+#model with soil info and assured low class observations, 7 nodes, 0.01 decay
+set.seed(444)
+forest.nn4 = nnet(CoverType ~ . , data=forest.train4, linout=FALSE, size=5, maxit=2000, decay=0.01, trace=FALSE)
+idx = grep("CoverType", colnames(forest.valid4))
+forest.nn4.pred = predict(forest.nn4, newdata=forest.valid4[,-idx], type="class")
+forest.nn4.cm = caret::confusionMatrix(data=forest.nn4.pred, reference=forest.valid4$CoverType)
+forest.nn4.kappa = forest.nn4.cm$overall[2]
+forest.nn4.accuracy = forest.nn4.cm$overall[1]
+
+#model with soil info, two layer (5,2) nodes, 0.01 decay
+library(neuralnet)
+set.seed(444)
+forest.model.nn5 = sample_n(forest.train4, 40000)
+n = names(forest.model.nn5)
+ft = as.formula(paste("~", paste(n, collapse = " + ")))
+m = model.matrix( ft , data=forest.model.nn5)[,-1]
+m = cbind(m, forest.model.nn5$CoverType)
+colnames(m)[ncol(m)] = "CoverType"
+n = colnames(m)
+fnn = as.formula(paste("CoverType ~", paste(n[!n %in% "CoverType"], collapse = " + ")))
+forest.nn5 = neuralnet(fnn, data=m, hidden=5, linear.output=FALSE, learningrate = 0.01)
+
+n = names(forest.valid2)
+fv = as.formula(paste("CoverType ~", paste(n[!n %in% "CoverType"], collapse = " + ")))
+m.test = model.matrix( fv , data=forest.valid2)[,-1]
+m.test = cbind(m.test, forest.valid2$CoverType)
+colnames(m.test)[ncol(m.test)] = "CoverType"
+forest.nn5.pred = compute(forest.nn5, m.test[,1:ncol(m.test)-1])$net.result
 
 ```
 
