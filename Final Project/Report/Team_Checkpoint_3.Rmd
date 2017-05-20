@@ -1001,13 +1001,21 @@ varImpPlot(df.rf, main='Variable Importance from Random Forest', cex=0.8)
 ```
 
 ```{r neural network}
-
 library(nnet)
+
+build = FALSE
 
 # model without soil info, 5 nodes, 0.01 decay
 set.seed(444)
 forest.model.nn1 = sample_n(forest.train1, 40000)
-forest.nn1 = nnet(CoverType ~ . , data=forest.model.nn1, linout=FALSE, size=5, maxit=2000, decay=0.01, trace=FALSE)
+
+if (build) {
+  forest.nn1 = nnet(CoverType ~ . , data=forest.model.nn1, linout=FALSE, size=5, maxit=2000, decay=0.01, trace=FALSE)
+  saveRDS(forest.nn1, "./forest.nn1")
+} else {
+  forest.nn1 = readRDS("./forest.nn1")
+}
+
 idx = grep("CoverType", colnames(forest.valid))
 forest.nn1.pred = predict(forest.nn1, newdata=forest.valid1[,-idx], type="class")
 forest.nn1.cm = caret::confusionMatrix(forest.nn1.pred, reference=forest.valid1$CoverType)
@@ -1022,7 +1030,14 @@ forest.nn1.accuracy = forest.nn1.cm$overall[1]
 #model with soil info, 5 nodes, 0.01 decay
 set.seed(444)
 forest.model.nn2 = sample_n(forest.train2, 40000)
-forest.nn2 = nnet(CoverType ~ . , data=forest.model.nn2, linout=FALSE, size=5, maxit=2000, decay=0.01, trace=FALSE)
+
+if (build) {
+  forest.nn2 = nnet(CoverType ~ . , data=forest.model.nn2, linout=FALSE, size=5, maxit=2000, decay=0.01, trace=FALSE)
+  saveRDS(forest.nn2, "./forest.nn2")
+} else {
+  forest.nn2 = readRDS("./forest.nn2")
+}
+
 idx = grep("CoverType", colnames(forest.valid))
 forest.nn2.pred = predict(forest.nn2, newdata=forest.valid2[,-idx], type="class")
 forest.nn2.cm = caret::confusionMatrix(data=forest.nn2.pred, reference=forest.valid2$CoverType)
@@ -1032,7 +1047,14 @@ forest.nn2.accuracy = forest.nn2.cm$overall[1]
 #model with soil info, 9 nodes, 0.01 decay
 set.seed(444)
 forest.model.nn3 = sample_n(forest.train2, 40000)
-forest.nn3 = nnet(CoverType ~ . , data=forest.model.nn3, linout=FALSE, size=9, maxit=2000, decay=0.01, trace=FALSE)
+
+if (build) {
+  forest.nn3 = nnet(CoverType ~ . , data=forest.model.nn3, linout=FALSE, size=9, maxit=2000, decay=0.01, trace=FALSE)
+  saveRDS(forest.nn2, "./forest.nn3")
+} else {
+  forest.nn3 = readRDS("./forest.nn3")
+}
+
 idx = grep("CoverType", colnames(forest.valid))
 forest.nn3.pred = predict(forest.nn3, newdata=forest.valid2[,-idx], type="class")
 forest.nn3.cm = caret::confusionMatrix(data=forest.nn3.pred, reference=forest.valid2$CoverType)
@@ -1041,7 +1063,12 @@ forest.nn3.accuracy = forest.nn3.cm$overall[1]
 
 #model with soil info and assured low class observations, 7 nodes, 0.01 decay
 set.seed(444)
-forest.nn4 = nnet(CoverType ~ . , data=forest.train4, linout=FALSE, size=5, maxit=2000, decay=0.01, trace=FALSE)
+if (build) {
+  forest.nn4 = nnet(CoverType ~ . , data=forest.train4, linout=FALSE, size=5, maxit=2000, decay=0.01, trace=FALSE)
+  saveRDS(forest.nn4, "./forest.nn4")
+} else {
+  forest.nn4 = readRDS("./forest.nn4")
+}
 idx = grep("CoverType", colnames(forest.valid4))
 forest.nn4.pred = predict(forest.nn4, newdata=forest.valid4[,-idx], type="class")
 forest.nn4.cm = caret::confusionMatrix(data=forest.nn4.pred, reference=forest.valid4$CoverType)
@@ -1051,21 +1078,27 @@ forest.nn4.accuracy = forest.nn4.cm$overall[1]
 #model with soil info, two layer (5,2) nodes, 0.01 decay
 library(neuralnet)
 set.seed(444)
-forest.model.nn5 = sample_n(forest.train4, 40000)
-n = names(forest.model.nn5)
-ft = as.formula(paste("~", paste(n, collapse = " + ")))
-m = model.matrix( ft , data=forest.model.nn5)[,-1]
-m = cbind(m, forest.model.nn5$CoverType)
-colnames(m)[ncol(m)] = "CoverType"
+m = dummyVars(" ~ .", data = forest.train4)
+m = predict(m, newdata = forest.train4)
+# remove one each of the factor predictors, but leave all of the CoverType factors
+m$forest.area.Area1 = NULL
+m$forest.zone.trans.zone27 = NULL
 n = colnames(m)
-fnn = as.formula(paste("CoverType ~", paste(n[!n %in% "CoverType"], collapse = " + ")))
-forest.nn5 = neuralnet(fnn, data=m, hidden=5, linear.output=FALSE, learningrate = 0.01)
+left = paste(n[grep("CoverType",n)], collapse = " + ")
+right = paste(n[-grep("CoverType",n)], collapse = " + ")
+fnn = as.formula(paste(left, right, sep = " ~ "))
 
-n = names(forest.valid2)
-fv = as.formula(paste("CoverType ~", paste(n[!n %in% "CoverType"], collapse = " + ")))
-m.test = model.matrix( fv , data=forest.valid2)[,-1]
-m.test = cbind(m.test, forest.valid2$CoverType)
-colnames(m.test)[ncol(m.test)] = "CoverType"
+if (build) {
+  forest.nn5 = neuralnet(fnn, data=m, hidden=5, linear.output=FALSE, learningrate = 0.01)
+  saveRDS(forest.nn2, "./forest.nn5")
+} else {
+  forest.nn5 = readRDS("./forest.nn5")
+}
+
+m.test = dummyVars(" ~ .", data = forest.valid4)
+m.test = predict(m, newdata = forest.valid4)
+m.test$forest.area.Area1 = NULL
+m.test$forest.zone.trans.zone27 = NULL
 forest.nn5.pred = compute(forest.nn5, m.test[,1:ncol(m.test)-1])$net.result
 
 ```
