@@ -1000,8 +1000,14 @@ varImpPlot(df.rf, main='Variable Importance from Random Forest', cex=0.8)
 
 ```
 
-For modeling with a neural network, there are several variations that can impact the effectiveness of the model. These include the learning rate, the number of layers in the neural network, and the number of nodes in each layer. Several models were investigated changing these parameters. Additionally, we attempted to use different variables in the modeling. The best perform of the neural networks was: 
+For modeling with a neural network, there are several variations that can impact the effectiveness of the model. These include the learning rate, the number of layers in the neural network, and the number of nodes in each layer. Several models were investigated changing these parameters. Additionally, we attempted to use different variables in the modeling. 
 
+* 5 nodes, 1 layer, 0.01 learning rate, no soil predictors, random sample -> Kappa 0.56, Accuracy 0.73
+* 5 nodes, 1 layer, 0.01 learning rate, soil predictors, random sample -> Kappa 0.57, Accurarcy 0.74
+* 9 nodes, 1 layer, 0.01 learning rate, soil predictors, random sample -> Kappa 0.59, Accuracy 0.75
+* 5 nodes, 1 layer, 0.01 learning rate, soil predictors, tiered sample -> Kappa 0.60, Accuracy 0.70
+
+The winning neural network model is the one with the highest Kappa with the tiered sampling.
 
 ```{r neural network}
 library(nnet)
@@ -1064,7 +1070,7 @@ forest.nn3.cm = caret::confusionMatrix(data=forest.nn3.pred, reference=forest.va
 forest.nn3.kappa = forest.nn3.cm$overall[2]
 forest.nn3.accuracy = forest.nn3.cm$overall[1]
 
-#model with soil info and assured low class observations, 7 nodes, 0.01 decay
+#model with soil info and assured low class observations, 5 nodes, 0.01 decay
 set.seed(444)
 if (build) {
   forest.nn4 = nnet(CoverType ~ . , data=forest.train4, linout=FALSE, size=5, maxit=2000, decay=0.01, trace=FALSE)
@@ -1082,9 +1088,10 @@ forest.nn4.accuracy = forest.nn4.cm$overall[1]
 library(neuralnet)
 set.seed(444)
 forest.nn5.model = forest.train4
+#forest.nn5.model = forest.nn5.model[1:1000,]
 idxs = grep("forest.zone", colnames(forest.nn5.model))
-m = dummyVars(" ~ .", data = forest.train4[,-idxs])
-m = predict(m, newdata = forest.train4)
+m = dummyVars(" ~ .", data = forest.nn5.model[,-idxs])
+m = predict(m, newdata = forest.nn5.model)
 # remove one each of the factor predictors, but leave all of the CoverType factors
 n = colnames(m)
 idxs = grep("forest.area.Area1", n)
@@ -1095,19 +1102,31 @@ right = paste(n[-grep("CoverType",n)], collapse = " + ")
 fnn = as.formula(paste(left, right, sep = " ~ "))
 
 if (build) {
-  forest.nn5 = neuralnet(fnn, data=m, hidden=c(5,3), linear.output=FALSE, learningrate = 0.01)
+  forest.nn5 = neuralnet(fnn, data=m, hidden=c(9,3), linear.output=FALSE, learningrate = 0.01)
+  s = forest.nn5
   saveRDS(forest.nn2, "./forest.nn5")
 } else {
   forest.nn5 = readRDS("./forest.nn5")
 }
 
-m.test = dummyVars(" ~ .", data = forest.valid4)
-m.test = predict(m, newdata = forest.valid4)
-m.test$forest.area.Area1 = NULL
-m.test$forest.zone.trans.zone27 = NULL
-forest.nn5.pred = compute(forest.nn5, m.test[,1:ncol(m.test)-1])$net.result
+idxs = grep("forest.zone", colnames(forest.valid4))
+m.test = dummyVars(" ~ .", data = forest.valid4[,-idxs])
+m.test = predict(m.test, newdata = forest.valid4)
+n = colnames(m.test)
+idxs = grep("forest.area.Area1|CoverType", n)
+m.test = m.test[,-idxs]
+forest.nn5.pred = neuralnet::compute(forest.nn5, m.test)$net.result
+head(forest.nn5.pred)
+
+s = apply(forest.nn5.pred,1,function(x){
+  return(which.is.max(x))
+  #return(which(x == max(x), arr.ind = TRUE))
+})
+
 
 ### add code for the best nn performer's accuracy, kappa, f1, and boxplot of f1
+#barplot(forest.nn1.cm$byClass[,7])
+#plot(forest.nn5)
 
 ```
 
