@@ -502,7 +502,7 @@ plot(summary(zone.pca)$importance[3,], xlab="Principal Components", ylab="Import
      main="Soil Zone PCA Importance Plot", pch=20, col="blue")
 par(mfrow=c(1,1))
 
-rm(list = c(temp.soil, temp.zone))
+#rm(list = c(temp.soil, temp.zone))
 
 ```
 
@@ -802,6 +802,7 @@ To accomplish this, we attempted the following samples:
 3. 5000 observations from each class with replacement
 4. a tiered selection of observations, using all observations from low volume types, and using a higher sampling from the more popular types
 5. a random sampling of 40,000
+6. Stratified sample of 23,000
 
 An analysis of comparing the kappa values on a random forest model of these samples shows that a random sampling of 40,000 performs the best. Though common sense will tell us to include all observations of the less popular cover types. Therefore the sampling used in this modeling will include a tiered selection of observations with approximately 40,000 observations in all.
 
@@ -932,7 +933,196 @@ The model is sensitive to highly correlated predictors and near-zero predictors.
 Predictions are made for by searching through the entire training set for the K most similar instances and summarizing the most common class for those K instances. KNN is suited for lower dimensional data. We will need to center and scale predictors prior to performing KNN. The model is sensitive to near-zero predictors and the tuning parameter is k.
 
 ## Random Forests
-Each tree in the forest casts a vote for the classification of a new sample, and the proportion of votes in each class across the ensemble is the predicted probability vector.  Tuning parameter is mtry, the number of variables randomly sampled as candidates at each split. No need to preprocess the data. 
+Each tree in the forest casts a vote for the classification of a new sample, and the proportion of votes in each class across the ensemble is the predicted probability vector.  Tuning parameter is mtry, the number of variables randomly sampled as candidates at each split. There is no need to preprocess the data. 
+
+### Random Forest - Reduced Feature Set,  Stratified Sample, 5-fold cross-validation and 3 repeats, random search for mtry
+
+#### Sample
+
+For our first Random Forest model, we used a stratified sample of 23,243 observations for training. This amounted to 5% of the observation left after removing 20% of total observation for use in backwards recursive feature selection. Stratified sampling maintains the class distribution found in the original data set. 
+
+```{r}
+forest.4 <- readRDS("forest.4.rds")
+set.seed(456)
+intrain2<-createDataPartition(y=forest.4$CoverType,p=0.05,list=FALSE)
+forest.4.train<-forest.4[intrain2,]
+forest.4.test<-forest.4[-intrain2,]
+```
+
+
+#### Predictors
+
+Our original data set was augmented with variables suggested by our exploratory data analysis, including linear distance variable was also created using the vertical and horizontal distance to hydrology variables and interactions between our Areas and Elevation, as suggested by the distinct distributions of the areas by elevation. We used recursive backwards feature selection on 20% of our full data set with 'Kappa' set as our metric to maximize. The algorithm is configured to explore all possible subsets of the attributes. It returned 16 predictors.
+
+```{r}
+set.seed(7)
+
+# define the control using a random forest selection function
+control <- rfeControl(functions=rfFuncs, method="cv", number=5)
+# run the RFE algorithm - Backwards Feature Selection with Kappa as metric
+
+#results <- rfe(CoverType ~ ., data = forest.3, metric = "Kappa", rfeControl=control)
+
+#saveRDS(results, "./results.rfe.rds")
+results <- readRDS("results.rfe.rds")
+# summarize the results
+#print(results)
+# list the chosen features
+rfe.predictors <- predictors(results)
+# plot the results
+plot(results, type=c("g", "o"))
+
+```
+```{r}
+rfe.pred <- data.frame(rfe.predictors)
+kable(rfe.pred, format = "pandoc")
+```
+
+#### Tuning Methodology
+
+In order to get better accuracy from our algorithm we used algorithm tuning to find the best parameter value for our problem. We used random search strategy to try random values within a range. Kappa was used to select the optimal model using the largest value. The final value used for the model was mtry = 10. 
+
+```{r}
+control <- trainControl(method="repeatedcv", number=5, repeats=3, search = "random")
+metric <- "Kappa"
+set.seed(345)
+mtry <- sqrt(ncol(forest.4.train))
+#rf.mod1 <- train(CoverType~ Elevation + HDist.FirePoint + HDist.Roadway + trans.LDist.Hydrology +
+#+  VDist.Hydrology + Hillshade.3pm + Hillshade.12pm + Aspect +   
+#+  HDist.Hydrology + interElAr3 + Slope + interElAr1 + SoilType22 +
+#+  SoilType23 + SoilType2 + SoilType33, data=forest.4.train, method="rf", 
+#+ metric=metric,tuneLength=15, trControl=control)
+
+rf.mod1 <- readRDS("rf.mod1.rds")
+
+plot(rf.mod1)
+```
+
+#### Results
+
+```{r}
+pred.rf1 = predict(rf.mod1$finalModel, newdata=forest.4.test )
+cm.rf1 = confusionMatrix(data=pred.rf1, forest.4.test$CoverType)
+```
+
+```{r}
+library(pander)
+pander(cm.rf1$table)
+```
+
+```{r}
+#cm.rf1
+```
+
+The model had an accuracy of 85.1%, but accuracy is not a good measurement for our imbalanced data set since it reflects the underlying class distributions. We will use alternative metrics such as Kappa, Balanced Accuracy, and F1 score to evaluate our models. Our model achived a Kappa value of 75.7 and had poor results in our underrepresented classes.
+
+```{r}
+f1 <- as.data.frame(cm.rf1$byClass[,7])
+colnames(f1) <- "F1"
+f1$Class <- row.names(f1)
+ggplot(data=f1, aes(x=Class, y = F1)) +
+  geom_bar(stat="identity", width=0.5) + ggtitle("F1 Scores")
+
+```
+
+```{r}
+ba <- as.data.frame(cm.rf1$byClass[,11])
+colnames(ba) <- "Balanced_Accuracy"
+ba$Class <- row.names(ba)
+ggplot(data=ba, aes(x=Class, y = Balanced_Accuracy)) +
+  geom_bar(stat="identity", width=0.5) + ggtitle("Balanced Accuracy")
+```
+
+
+### Random Forest - PCA Soil,  Stratified Sample, 5-fold cross-validation and 3 repeats, grid search for mtry
+
+#### Sample
+
+For our second Random Forest model, we used the stratified sample of 46,484 observations for training. 
+
+#### Predictors
+
+For our second Random Forest model we removed the 40 soil values and replaced them with 16 variables that explained 90% of the variance.
+
+```{r}
+set.seed(444)
+idxs.soil = grep("Soil", colnames(forest.4))
+temp.soil = forest.4[,idxs.soil]
+soil.pca = prcomp(temp.soil, scale = F)
+soil.pca.x = soil.pca$x
+colnames(soil.pca.x) <- c(paste0("soil.pca.pc",as.character(1:ncol(soil.pca.x))))
+
+forest.4 <- cbind(forest.4, soil.pca.x[,1:16]) #90.7% of importantance
+
+set.seed(456)
+intrain3<-createDataPartition(y=forest.4$CoverType,p=0.1,list=FALSE)
+forest.4.train1<-forest.4[intrain3,]
+forest.4.test1<-forest.4[-intrain3,]
+
+```
+
+
+#### Tuning Methodology
+
+We used grid search strategy to try random values within a range. Each axis of the grid is an algorithm parameter, and points in the grid are specific combinations of parameters. Because we are only tuning one parameter, the grid search is a linear search through a vector of candidate values. Kappa was used to select the optimal model using the largest value. The final value used for the model was mtry = 15. 
+
+```{r}
+control <- trainControl(method="repeatedcv", number=5, repeats=3, search="grid")
+set.seed(456)
+tunegrid <- expand.grid(.mtry=c(1:15))
+#rf_gridsearch <- train(CoverType ~ Elevation + Aspect + Slope + HDist.Hydrology +  
+     #               + VDist.Hydrology + HDist.Roadway + Hillshade.9am + Hillshade.12pm  
+      #              + Hillshade.3pm + HDist.FirePoint + Area1 + Area2 
+     #               + Area3+ Area4 + trans.LDist.Hydrology + interElAr1 + interElAr2 
+     #               + interElAr3 + interElAr4 + below.water + soil.pca.pc1 + soil.pca.pc2
+     #               + soil.pca.pc3 + soil.pca.pc4 +  soil.pca.pc5 + soil.pca.pc6 + soil.pca.pc7
+     #               + soil.pca.pc8 + soil.pca.pc9+  soil.pca.pc10+ soil.pca.pc11
+     #               + soil.pca.pc12 + soil.pca.pc13+ soil.pca.pc14+ soil.pca.pc15
+     #               + soil.pca.pc16, 
+     #               data=forest.4.train1, method="rf", metric="Kappa", tuneGrid=tunegrid, trControl=control)
+#saveRDS(rf_gridsearch, "./rf_gridsearch.rds")
+
+rf_gridsearch <- readRDS("rf_gridsearch.rds")
+
+plot(rf_gridsearch)
+
+
+```
+
+#### Results
+
+```{r}
+pred.rf2 = predict(rf_gridsearch$finalModel, newdata=forest.4.test1 )
+cm.rf2 = confusionMatrix(data=pred.rf2, forest.4.test1$CoverType)
+```
+
+```{r}
+library(pander)
+pander(cm.rf2$table)
+```
+
+```{r}
+#cm.rf2
+```
+
+The model had an accuracy of 90.8%, achieved a Kappa value of 85.1% and had much improved results in our underrepresented classes.
+
+```{r}
+f1 <- as.data.frame(cm.rf2$byClass[,7])
+colnames(f1) <- "F1"
+f1$Class <- row.names(f1)
+ggplot(data=f1, aes(x=Class, y = F1)) +
+  geom_bar(stat="identity", width=0.5) + ggtitle("F1 Scores")
+
+```
+
+```{r}
+ba <- as.data.frame(cm.rf2$byClass[,11])
+colnames(ba) <- "Balanced_Accuracy"
+ba$Class <- row.names(ba)
+ggplot(data=ba, aes(x=Class, y = Balanced_Accuracy)) +
+  geom_bar(stat="identity", width=0.5) + ggtitle("Balanced Accuracy")
+```
 
 ##Neural Network
 Rather than having one neuron in the output layer, have N binary neuron leading to multiclass classification. Classes are converted into binary indicators for N binary neurons. Tuning parameters are size and decay. The model is sensitive to highly correlated predictors and near-zero predictors. The data must also be centered and scaled.
