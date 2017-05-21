@@ -1114,23 +1114,25 @@ forest.nn5.pred = compute(forest.nn5, m.test[,1:ncol(m.test)-1])$net.result
 ```{r svm}
 
 ```
+K Nearest Neighbor (KNN) modeling involves a relatively simple algorithm that classifiers a target variable based on the classification of the “k” nearest neighbors. K is selected using cross-validation to avoid over-fitting. For our model, we used five- fold cross validation across K values ranging from 2-10. Predictor variables were normalized across a random sample of 40,000 training observations. The best performing model used three Shade PCA variables along with summarized Soil Types in the form of Forest Zones. An optimal “k” value of 3 was elected for this model, which resulted in model that performed poorly with a 44.1% misclassification rate.
 
 ```{r knn}
 library(class)
 library(caret)
 library(knncat)
 
+
 # temp make training set smaller.
 set.seed(444)
-forest.train2 <- forest.train[sample(nrow(forest.train), 10000, replace = FALSE),]
-
+forest.train.knn <- forest.train1[sample(nrow(forest.train1), 40000, replace = FALSE),]
+colnames(forest.train1)
 
 #Removing CoverType and Forest Zone Variables from model for now.
 #Researching how to treat them
-forest.train.x <- forest.train2[,-c(4,9,10)]
-forest.train.y <- forest.train2[,9]
-forest.valid.x <- forest.valid[,-c(4,9,10)]
-forest.valid.y <- forest.valid[,9]
+forest.train.x <- forest.train.knn[,-c(4,9,10)]
+forest.train.y <- forest.train.knn[,9]
+forest.valid.x <- forest.valid1[,-c(4,9,10)]
+forest.valid.y <- forest.valid1[,9]
 
 
 #normalize and standardize training data
@@ -1141,18 +1143,19 @@ apply(df.std.train, 2, mean) # check zero mean
 apply(df.std.train, 2, sd) # check unit sd
 
 
-forest.train3 <-df.std.train
-forest.train3 <- cbind(df.std.train,
-                       forest.train2$CoverType, 
-                      forest.train2$forest.area,
-                      forest.train2$forest.zone)
-colnames(forest.train3)[8] <- "CoverType"
-colnames(forest.train3)[9] <- "forest.area"
-colnames(forest.train3)[10] <- "forest.zone"
-forest.train3 <- as.data.frame(forest.train3)
-forest.train3$CoverType <- as.factor(forest.train3$CoverType)
-forest.train3$forest.area <- as.factor(forest.train3$forest.area)
-forest.train3$forest.zone <- as.factor(forest.train3$forest.zone)
+forest.train.knn3 <-df.std.train
+forest.train.knn3 <- cbind(df.std.train,
+                       forest.train.knn$CoverType, 
+                       forest.train.knn$forest.area,
+                       forest.train.knn$forest.zone)
+colnames(forest.train.knn3)[8] <- "CoverType"
+colnames(forest.train.knn3)[9] <- "forest.area"
+colnames(forest.train.knn3)[10] <- "forest.zone"
+forest.train.knn3 <- as.data.frame(forest.train.knn3)
+forest.train.knn3$CoverType <- as.factor(forest.train.knn3$CoverType)
+forest.train.knn3$forest.area <- as.factor(forest.train.knn3$forest.area)
+forest.train.knn3$forest.zone <- as.factor(forest.train.knn3$forest.zone)
+
 
 #normalize and standardize validation data
 df.mean.valid <- apply(forest.valid.x, 2, mean)
@@ -1161,29 +1164,30 @@ df.std.valid <- t((t(forest.valid.x)-df.mean.valid)/df.sd.valid) #standardize to
 apply(df.std.valid, 2, mean) # check zero mean
 apply(df.std.valid, 2, sd) # check unit sd
 
-forest.valid3 <- df.std.valid
-forest.valid3 <- cbind(df.std.valid,
-                       forest.valid$CoverType, 
-                       forest.valid$forest.area,
-                       forest.valid$forest.zone)
-colnames(forest.valid3)[8] <- "CoverType"
-colnames(forest.valid3)[9] <- "forest.area"
-colnames(forest.valid3)[10] <- "forest.zone"
-forest.valid3 <- as.data.frame(forest.valid3)
-forest.valid3$CoverType <- as.factor(forest.valid3$CoverType)
-forest.valid3$forest.area <- as.factor(forest.valid3$forest.area)
-forest.valid3$forest.zone <- as.factor(forest.valid3$forest.zone)
+forest.valid.knn3 <- df.std.valid
+forest.valid.knn3 <- cbind(df.std.valid,
+                       forest.valid1$CoverType, 
+                       forest.valid1$forest.area,
+                       forest.valid1$forest.zone)
+colnames(forest.valid.knn3)[8] <- "CoverType"
+colnames(forest.valid.knn3)[9] <- "forest.area"
+colnames(forest.valid.knn3)[10] <- "forest.zone"
+forest.valid.knn3 <- as.data.frame(forest.valid.knn3)
+forest.valid.knn3$CoverType <- as.factor(forest.valid.knn3$CoverType)
+forest.valid.knn3$forest.area <- as.factor(forest.valid.knn3$forest.area)
+forest.valid.knn3$forest.zone <- as.factor(forest.valid.knn3$forest.zone)
 
 
-
-#Gettin' To Modelin'...finally
-pred <-knncat(forest.train3, 
-              forest.valid3,
+#Modeling
+pred <-knncat(forest.train.knn3, 
+              forest.valid.knn3,
               classcol = 9,
               k= c(2,3,4,5,6,7,8,9,10), #values of K to test
               xvals = 5) #cross-validation folds
-pred$best.k
-pred$misclass.mat
+pred$best.k #K=3 from CV
+pred$misclass.mat #Confusion Matrix
+pred #44.1% misclassiciation rate
+
 ```
 
 ```{r logistic regression}
