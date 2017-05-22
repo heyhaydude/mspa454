@@ -75,6 +75,7 @@ library(dplyr)
 library(doMC)
 library(randomForest)
 library(nnet)
+library(neuralnet)
 registerDoMC(cores = 5)
 
 ```
@@ -659,6 +660,8 @@ library(DMwR)
 library(dplyr)
 library(doMC)
 library(randomForest)
+library(nnet)
+library(neuralnet)
 registerDoMC(cores = 5)
 
 forest.new= forest.orig
@@ -1010,7 +1013,6 @@ For modeling with a neural network, there are several variations that can impact
 The winning neural network model is the one with the highest Kappa with the tiered sampling.
 
 ```{r neural network}
-library(nnet)
 
 build = TRUE
 
