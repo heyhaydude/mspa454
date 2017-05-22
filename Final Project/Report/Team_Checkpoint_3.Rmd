@@ -552,7 +552,7 @@ forest.transforms= forest.new[,idxs_trans]
 idxs_pca = grep("PC|shade.pca", colnames(forest.new))
 forest.pca= forest.new[,idxs_pca]
 idxs_buck = grep("buck", colnames(forest.new))
-forest.bucketing= forest[,idxs_buck]
+forest.bucketing= forest.new[,idxs_buck]
 
 #Training/Test Splitting
 set.seed(330)
