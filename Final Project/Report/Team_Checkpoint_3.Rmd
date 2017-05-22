@@ -1209,6 +1209,8 @@ build = TRUE
 # model without soil info, 5 nodes, 0.01 decay
 set.seed(444)
 forest.model.nn1 = sample_n(forest.train1, 40000)
+idxs = grep("Elevation|HDist|trans|shade",colnames(forest.model.nn1))
+forest.model.nn1[,idxs] = scale(forest.model.nn1[,idxs], center = TRUE, scale = TRUE)
 
 if (build) {
   forest.nn1 = nnet(CoverType ~ . , data=forest.model.nn1, linout=FALSE, size=5, maxit=2000, decay=0.01, trace=FALSE)
@@ -1217,8 +1219,11 @@ if (build) {
   forest.nn1 = readRDS("./forest.nn1")
 }
 
-idx = grep("CoverType", colnames(forest.valid))
-forest.nn1.pred = predict(forest.nn1, newdata=forest.valid1[,-idx], type="class")
+idx = grep("CoverType", colnames(forest.valid1))
+forest.model.nn1.valid = forest.valid1[,-idx]
+idxs = grep("Elevation|HDist|trans|shade",colnames(forest.model.nn1.valid))
+forest.model.nn1.valid[,idxs] = scale(forest.model.nn1.valid[,idxs], center = TRUE, scale = TRUE)
+forest.nn1.pred = predict(forest.nn1, newdata=forest.model.nn1.valid, type="class")
 forest.nn1.cm = caret::confusionMatrix(forest.nn1.pred, reference=forest.valid1$CoverType)
 forest.nn1.kappa = forest.nn1.cm$overall[2]
 forest.nn1.accuracy = forest.nn1.cm$overall[1]
@@ -1264,14 +1269,21 @@ forest.nn3.accuracy = forest.nn3.cm$overall[1]
 
 #model with soil info and assured low class observations, 5 nodes, 0.01 decay
 set.seed(444)
+forest.model.nn4 = forest.train4
+idxs = grep("Elevation|HDist|trans|shade",colnames(forest.model.nn4))
+forest.model.nn4[,idxs] = scale(forest.model.nn4[,idxs], center = TRUE, scale = TRUE)
 if (build) {
-  forest.nn4 = nnet(CoverType ~ . , data=forest.train4, linout=FALSE, size=5, maxit=2000, decay=0.01, trace=FALSE)
+  forest.nn4 = nnet(CoverType ~ . , data=forest.model.nn4, linout=FALSE, size=5, maxit=2000, decay=0.01, trace=FALSE)
   saveRDS(forest.nn4, "./forest.nn4")
 } else {
   forest.nn4 = readRDS("./forest.nn4")
 }
+forest.model.nn4.valid = forest.valid4
 idx = grep("CoverType", colnames(forest.valid4))
-forest.nn4.pred = predict(forest.nn4, newdata=forest.valid4[,-idx], type="class")
+forest.model.nn4.valid = forest.model.nn4.valid[,-idx]
+idxs = grep("Elevation|HDist|trans|shade",colnames(forest.model.nn4.valid))
+forest.model.nn4.valid[,idxs] = scale(forest.model.nn4.valid[,idxs], center = TRUE, scale = TRUE)
+forest.nn4.pred = predict(forest.nn4, newdata=forest.model.nn4.valid, type="class")
 forest.nn4.cm = caret::confusionMatrix(data=forest.nn4.pred, reference=forest.valid4$CoverType)
 forest.nn4.kappa = forest.nn4.cm$overall[2]
 forest.nn4.accuracy = forest.nn4.cm$overall[1]
