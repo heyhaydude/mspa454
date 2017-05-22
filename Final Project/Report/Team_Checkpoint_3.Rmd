@@ -553,6 +553,18 @@ forest.pca= forest.new[,idxs_pca]
 idxs_buck = grep("buck", colnames(forest.new))
 forest.bucketing= forest[,idxs_buck]
 
+#Training/Test Splitting
+set.seed(330)
+fraction.train <- .7 # Enter Training Set Size
+fraction.valid <- 1 - fraction.train
+size.train <- fraction.train*nrow(forest.new)
+size.valid <- nrow(forest.new) - size.train
+indices.train <- sort(sample(seq_len(nrow(forest.new)), size=size.train))
+indices.valid <- setdiff(seq_len(nrow(forest.new)), indices.train)
+forest.train <- forest.new[indices.train,]
+forest.valid <- forest.new[indices.valid,]
+
+
 ```
 
 # Exploratory Models - Feature Selection
@@ -806,7 +818,7 @@ To accomplish this, we attempted the following samples:
 
 An analysis of comparing the kappa values on a random forest model of these samples shows that a random sampling of 40,000 performs the best. Though common sense will tell us to include all observations of the less popular cover types. Therefore the sampling used in this modeling will include a tiered selection of observations with approximately 40,000 observations in all.
 
-```{r sampling}
+```{r sampling, eval=FALSE}
 
 ### Check if sampling technqiues will improve accuracy
 
@@ -819,7 +831,7 @@ forest.train.proptable
 set.seed(444)
 forest.sample1 = as.data.frame(forest.train %>% group_by(CoverType) %>% sample_n(size = 1917))
 sample1.forest = randomForest(CoverType~.,data=forest.sample1,importance=TRUE)
-sample1.pred = predict(sample1.forest, newdata = forest.valid)
+sample1.pred = caret::predict(sample1.forest, newdata = forest.valid)
 sample1.cm = confusionMatrix(sample1.pred,forest.valid$CoverType) 
 sample1.cm$overall[2]
 rm(list = c('forest.sample1','sample1.forest','sample1.pred'))
@@ -898,7 +910,7 @@ cbind(sample.types,sample.results)
 
 ```
 
-```{r}
+```{r, eval=FALSE}
 m = sample4.cm$table
 ms = apply(m,2,sum)
 mss = round(apply(m,1,function(x) {return (x/ms)}),2)
@@ -928,6 +940,8 @@ LDA assumes normal predictors and that the predictors have equal variance. LDA t
 
 ## Logistic Regression
 The model is sensitive to highly correlated predictors and near-zero predictors. The data must also be centered and scaled.
+
+
 
 ## K-Nearest Neighbors
 Predictions are made for by searching through the entire training set for the K most similar instances and summarizing the most common class for those K instances. KNN is suited for lower dimensional data. We will need to center and scale predictors prior to performing KNN. The model is sensitive to near-zero predictors and the tuning parameter is k.
@@ -1202,7 +1216,7 @@ The winning neural network model is the one with the highest Kappa with the tier
 ```{r neural network}
 library(nnet)
 
-build = TRUE
+build = FALSE
 
 # model without soil info, 5 nodes, 0.01 decay
 set.seed(444)
@@ -1305,13 +1319,13 @@ m.test = predict(m.test, newdata = forest.valid4)
 n = colnames(m.test)
 idxs = grep("forest.area.Area1|CoverType", n)
 m.test = m.test[,-idxs]
-forest.nn5.pred = neuralnet::compute(forest.nn5, m.test)$net.result
-head(forest.nn5.pred)
+#forest.nn5.pred = neuralnet::compute(forest.nn5, m.test)$net.result
+#head(forest.nn5.pred)
 
-s = apply(forest.nn5.pred,1,function(x){
-  return(which.is.max(x))
+#s = apply(forest.nn5.pred,1,function(x){
+#  return(which.is.max(x))
   #return(which(x == max(x), arr.ind = TRUE))
-})
+#})
 
 
 ### add code for the best nn performer's accuracy, kappa, f1, and boxplot of f1
@@ -1325,7 +1339,7 @@ s = apply(forest.nn5.pred,1,function(x){
 ```
 K Nearest Neighbor (KNN) modeling involves a relatively simple algorithm that classifiers a target variable based on the classification of the “k” nearest neighbors. K is selected using cross-validation to avoid over-fitting. For our model, we used five- fold cross validation across K values ranging from 2-10. Predictor variables were normalized across a random sample of 40,000 training observations. The best performing model used three Shade PCA variables along with summarized Soil Types in the form of Forest Zones. An optimal “k” value of 3 was elected for this model, which resulted in model that performed poorly with a 44.1% misclassification rate.
 
-```{r knn}
+```{r knn, eval=FALSE}
 library(class)
 library(caret)
 library(knncat)
