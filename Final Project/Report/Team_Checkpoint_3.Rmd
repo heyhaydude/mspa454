@@ -1432,6 +1432,33 @@ pred #44.1% misclassiciation rate
 ```
 
 ```{r discriminant analysis}
+# create sample for lda
+set.seed(444)
+forest.model.lda1 = sample_n(forest.train1, 40000)
+idxs = grep("Elevation|HDist|trans|shade",colnames(forest.model.lda1))
+forest.model.lda1[,idxs] = scale(forest.model.lda1[,idxs], center = TRUE, scale = TRUE)
+
+#Modeling
+pred.lda <-lda(CoverType ~ . ,data=forest.model.lda1)
+
+
+ggplotLDAPrep <- function(x){
+  if (!is.null(Terms <- x$terms)) {
+    data <- model.frame(x)
+    X <- model.matrix(delete.response(Terms), data)
+    g <- model.response(data)
+    xint <- match("(Intercept)", colnames(X), nomatch = 0L)
+    if (xint > 0L)
+      X <- X[, -xint, drop = FALSE]
+  }
+  means <- colMeans(x$means)
+  X <- scale(X, center = means, scale = FALSE) %*% x$scaling
+  rtrn <- as.data.frame(cbind(X,labels=as.character(g)))
+  rtrn <- data.frame(X,labels=as.character(g))
+  return(rtrn)
+}
+fitGraph <- ggplotLDAPrep(wine.lda)
+ggplot(fitGraph, aes(LD1,LD2, color=labels))+geom_point()
 
 ```
 
