@@ -72,11 +72,9 @@ library(caret)
 library(car)
 library(DMwR)
 library(dplyr)
-library(doMC)
 library(randomForest)
 library(nnet)
 library(neuralnet)
-registerDoMC(cores = 5)
 
 ```
 
@@ -1279,7 +1277,7 @@ ggplot(data=ba, aes(x=Class, y = Balanced_Accuracy)) +
 
 
 \newpage
-### Random Forest - PCA Soil,  Stratified Sample, 5-fold cross-validation and 3 repeats, grid search for mtry
+### Random Forest - PCA Soil,  Stratified Sample, 5-fold cross-validation and 3 repeats, Grid search for mtry
 
 #### Sample
 
@@ -1371,41 +1369,59 @@ ggplot(data=ba, aes(x=Class, y = Balanced_Accuracy)) +
 
 
 \newpage
-## Discriminant Analysis 
+##Linear Discriminant Analysis 
 
 LDA assumes normal predictors and that the predictors have equal variance. LDA then estiamtes the mean and variance for the predictors for each class. There is no tuning parameter and the model is sensitive to highly correlated predictors and near-zero predictors. The data must also be centered and scaled.
 
-```{r discriminant analysis}
-# create sample for lda
+```{r, eval=FALSE, warning=FALSE, error=FALSE}
 set.seed(444)
 forest.model.lda1 = sample_n(forest.train1, 40000)
 idxs = grep("Elevation|HDist|trans|shade",colnames(forest.model.lda1))
 forest.model.lda1[,idxs] = scale(forest.model.lda1[,idxs], center = TRUE, scale = TRUE)
 
-#Modeling
-pred.lda <-lda(CoverType ~ . ,data=forest.model.lda1)
 
 
-ggplotLDAPrep <- function(x){
-  if (!is.null(Terms <- x$terms)) {
-    data <- model.frame(x)
-    X <- model.matrix(delete.response(Terms), data)
-    g <- model.response(data)
-    xint <- match("(Intercept)", colnames(X), nomatch = 0L)
-    if (xint > 0L)
-      X <- X[, -xint, drop = FALSE]
-  }
-  means <- colMeans(x$means)
-  X <- scale(X, center = means, scale = FALSE) %*% x$scaling
-  rtrn <- as.data.frame(cbind(X,labels=as.character(g)))
-  rtrn <- data.frame(X,labels=as.character(g))
-  return(rtrn)
-}
-fitGraph <- ggplotLDAPrep(pred.lda)
-ggplot(fitGraph, aes(LD1,LD2, color=labels))+geom_point()
+#forest.lda1 <- train(CoverType ~ .,  data = forest.model.lda1,
+                             method = "lda", 
+                             metric = "Kappa", 
+                             preProc = c("center", "scale"))
 
 ```
 
+```{r}
+#saveRDS(forest.lda1, "./forest.lda1.rds")
+
+```
+
+```{r}
+forest.lda1 <- readRDS("./forest.lda1.rds")
+```
+
+```{r}
+forest.model.lda1.valid = forest.valid1[,-idx]
+idxs = grep("Elevation|HDist|trans|shade",colnames(forest.model.lda1.valid))
+forest.model.lda1.valid[,idxs] = scale(forest.model.lda1.valid[,idxs], center = TRUE, scale = TRUE)
+
+
+pred.lda1 = predict(forest.lda1, newdata=forest.model.lda1.valid)
+forest.lda1.cm = confusionMatrix(data=pred.lda1, forest.model.lda1.valid$CoverType)
+forest.lda1.kappa = forest.lda1.cm$overall[2]
+forest.lda1.accuracy = forest.lda1.cm$overall[1]
+
+```
+
+```{r}
+pander(forest.lda1.cm$table)
+```
+
+```{r, fig.height=4, fig.cap="F1 for Linear Discriminant Analysis"}
+f1 <- as.data.frame(forest.lda1.cm$byClass[,7])
+colnames(f1) <- "F1"
+f1$Class <- row.names(f1)
+ggplot(data=f1, aes(x=Class, y = F1)) +
+  geom_bar(stat="identity", width=0.5) + ggtitle("F1 Scores")
+
+```
 
 ## K-Nearest Neighbors
 Predictions are made for by searching through the entire training set for the K most similar instances and summarizing the most common class for those K instances. KNN is suited for lower dimensional data. We will need to center and scale predictors prior to performing KNN. The model is sensitive to near-zero predictors and the tuning parameter is k.
@@ -1495,7 +1511,85 @@ The model is sensitive to highly correlated predictors and near-zero predictors.
 
 
 ## Support Vector Machine
-A support vector machine algorithm an optimal hyperplane which categorizes new examples into a class. The tuning parameter is C, allows violation of the margins with C=0 allowing for no violation and higher variance and larger C resulting in a less sensitive algorithm. the The model requires centering and scaling of data.  
+A support vector machine algorithm an optimal hyperplane which categorizes new examples into a class. The tuning parameter is C, allows violation of the margins with C=0 allowing for no violation and higher variance and larger C resulting in a less sensitive algorithm. the The model requires centering and scaling of data. 
+
+
+```{r}
+library(e1071)
+set.seed(444)
+forest.model.svm1 = sample_n(forest.train1, 40000)
+idxs = grep("Elevation|HDist|trans|shade",colnames(forest.model.svm1))
+forest.model.svm1[,idxs] = scale(forest.model.svm1[,idxs], center = TRUE, scale = TRUE)
+
+#forest.svm.1 <- svm(CoverType ~ ., method = "class", data = forest.model.svm1)
+#forest.svm.1
+```
+
+```{r}
+#saveRDS(forest.svm.1, "./forest.svm1.rds")
+```
+
+```{r}
+forest.svm1 <- readRDS("./forest.svm1.rds")
+```
+
+
+```{r}
+forest.model.svm1.valid = forest.valid1
+idxs = grep("Elevation|HDist|trans|shade",colnames(forest.model.svm1.valid))
+forest.model.svm1.valid[,idxs] = scale(forest.model.svm1.valid[,idxs], center = TRUE, scale = TRUE)
+
+
+#pred.svm1 = predict(forest.svm.1, newdata=forest.model.svm1.valid)
+
+#saveRDS(pred.svm1, "./pred.svm1.rds")
+pred.svm1 <- readRDS("./pred.svm1.rds")
+
+tab.svm <- table("Predicted Class" = pred.svm1, "Actual" = forest.model.svm1.valid$CoverType)
+#tab.svm
+```
+
+```{r}
+forest.svm1.cm <-confusionMatrix(data=pred.svm1, forest.model.svm1.valid$CoverType)
+forest.svm1.kappa = forest.svm1.cm$overall[2]
+forest.svm1.accuracy = forest.svm1.cm$overall[1]
+```
+
+```{r}
+pander(forest.svm1.cm$table)
+```
+
+```{r, fig.height=4, fig.cap="F1 for Support Vector Machines"}
+f1 <- as.data.frame(forest.svm1.cm$byClass[,7])
+colnames(f1) <- "F1"
+f1$Class <- row.names(f1)
+ggplot(data=f1, aes(x=Class, y = F1)) +
+  geom_bar(stat="identity", width=0.5) + ggtitle("F1 Scores")
+
+```
+
+#Model Evaluation
+
+```{r}
+
+#add Neural Network models, K Nearest Neighbor and Logistic Regression
+
+models = c("Random Forest","Random Forest w PCA", "Linear Discriminant Analysis","Support Vector Machines")
+
+stats = c("Model", "Accuracy", "Kappa")
+
+accuracy = round(c(cm.rf1$overall[1],cm.rf2$overall[1],forest.lda1.accuracy,forest.svm1.accuracy),
+digits = 3)
+
+kappa = round(c(cm.rf1$overall[2],cm.rf2$overall[2],forest.lda1.kappa,forest.svm1.kappa),
+digits = 3)
+
+summary_table = cbind(models,accuracy,kappa)
+colnames(summary_table) = stats
+rownames(summary_table) = NULL
+pander(summary_table, justify = "left")
+```
+
 
 
 # Conclusion
