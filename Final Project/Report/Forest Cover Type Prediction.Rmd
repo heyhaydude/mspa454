@@ -941,16 +941,14 @@ To accomplish this, we attempted the following samples:
 ##Neural Network
 Rather than having one neuron in the output layer, have N binary neuron leading to multiclass classification. Classes are converted into binary indicators for N binary neurons. Tuning parameters are size and decay. The model is sensitive to highly correlated predictors and near-zero predictors. The data must also be centered and scaled.
 
-For modeling with a neural network, there are several variations that can impact the effectiveness of the model. These include the learning rate, the number of layers in the neural network, and the number of nodes in each layer. Several models were investigated changing these parameters. Additionally, we attempted to use different variables in the modeling. 
+For modeling with a neural network, there are several variations that can impact the effectiveness of the model. These include the learning rate, the number of layers in the neural network, and the number of nodes in each layer. Several models were investigated changing these parameters. Additionally, we attempted to use different variables in the modeling. To help narrow in on the appropriate settings, we used cross validation techniques and a tuning grid. 
 
 * 5 nodes, 1 layer, 0.01 learning rate, no soil predictors, random sample -> Kappa 0.56, Accuracy 0.73
 * 5 nodes, 1 layer, 0.01 learning rate, soil predictors, random sample -> Kappa 0.57, Accurarcy 0.74
 * 9 nodes, 1 layer, 0.01 learning rate, soil predictors, random sample -> Kappa 0.59, Accuracy 0.75
-* 5 nodes, 1 layer, 0.01 learning rate, soil predictors, tiered sample -> Kappa 0.60, Accuracy 0.70
-
 * 15 nodes, 1 layer, 0.05 learning rate, soil predictors, tiered sample -> Kappa 0.66, Accuracy 0.74
 
-The winning neural network model is the one with the highest Kappa with the tiered sampling.
+The winning neural network model is the one with the highest Kappa with the tiered sampling. This lead to 15 nodes, 1 layer, and a learning rate of 0.05.
 
 
 ```{r neural network, fig.height=4, fig.cap="F1 for Neural Network"}
@@ -1095,7 +1093,7 @@ forest.model.nn5 = forest.train4
 #idxs = grep("Elevation|HDist|trans|shade",colnames(forest.model.nn5))
 #forest.model.nn5[,idxs] = scale(forest.model.nn5[,idxs], center = TRUE, scale = TRUE)
 if (build) {
-  forest.nn5 = nnet(CoverType ~ . , data=forest.model.nn5, linout=FALSE, size=15, maxit=2000, decay=0.05, trace=FALSE)
+  forest.nn5 = nnet(CoverType ~ . , data=forest.model.nn5, linout=FALSE, size=15, maxit=2000, decay=0.05, trace=FALSE, softmax=TRUE)
   saveRDS(forest.nn5, "./forest.nn5")
 } else {
   forest.nn5 = readRDS("./forest.nn5")
@@ -1133,7 +1131,7 @@ right = paste(n[-grep("CoverType",n)], collapse = " + ")
 fnn = as.formula(paste(left, right, sep = " ~ "))
 
 if (build) {
-  forest.nn6 = neuralnet(fnn, data=m, hidden=c(15,9), linear.output=FALSE, learningrate = 0.05)
+  forest.nn6 = neuralnet(fnn, data=m, hidden=c(15,9), linear.output=FALSE, learningrate = 0.5)
   saveRDS(forest.nn6, "./forest.nn6")
 } else {
   forest.nn6 = readRDS("./forest.nn6")
@@ -1152,6 +1150,33 @@ m.test = m.test[,-idxs]
 #  return(which.is.max(x))
   #return(which(x == max(x), arr.ind = TRUE))
 #})
+
+
+############################################################
+
+set.seed(444)
+forest.model.nn7 = forest.train4
+
+#idxs = grep("Elevation|HDist|trans|shade",colnames(forest.model.nn7))
+#forest.model.nn7[,idxs] = scale(forest.model.nn7[,idxs], center = TRUE, scale = TRUE)
+if (build) {
+  forest.model.nn7$Y = class.ind(forest.model.nn7$CoverType)
+  # delete the old target variable
+  forest.model.nn7$CoverType=NULL
+  forest.nn7 = nnet(Y ~ . , data=forest.model.nn7, linout=FALSE, size=15, maxit=2000, decay=0.05, trace=FALSE, softmax=TRUE)
+  saveRDS(forest.nn7, "./forest.nn7")
+} else {
+  forest.nn7 = readRDS("./forest.nn7")
+}
+forest.model.nn7.valid = forest.valid4
+idx = grep("CoverType", colnames(forest.valid4))
+forest.model.nn7.valid = forest.model.nn7.valid[,-idx]
+#idxs = grep("Elevation|HDist|trans|shade",colnames(forest.model.nn7.valid))
+#forest.model.nn7.valid[,idxs] = scale(forest.model.nn7.valid[,idxs], center = TRUE, scale = TRUE)
+forest.nn7.pred = predict(forest.nn7, newdata=forest.model.nn7.valid, type="class")
+forest.nn7.cm = caret::confusionMatrix(data=forest.nn7.pred, reference=forest.valid4$CoverType)
+forest.nn7.kappa = forest.nn7.cm$overall[2]
+forest.nn7.accuracy = forest.nn7.cm$overall[1]
 
 
 ### add code for the best nn performer's accuracy, kappa, f1, and boxplot of f1
