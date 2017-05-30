@@ -1131,18 +1131,18 @@ right = paste(n[-grep("CoverType",n)], collapse = " + ")
 fnn = as.formula(paste(left, right, sep = " ~ "))
 
 if (build) {
-  forest.nn6 = neuralnet(fnn, data=m, hidden=c(15,9), linear.output=FALSE, learningrate = 0.5)
-  saveRDS(forest.nn6, "./forest.nn6")
+  #forest.nn6 = neuralnet(fnn, data=m, hidden=c(15,9), linear.output=FALSE, learningrate = 0.5)
+  #saveRDS(forest.nn6, "./forest.nn6")
 } else {
-  forest.nn6 = readRDS("./forest.nn6")
+  #forest.nn6 = readRDS("./forest.nn6")
 }
 
-idxs = grep("forest.zone", colnames(forest.valid4))
-m.test = dummyVars(" ~ .", data = forest.valid4[,-idxs])
-m.test = predict(m.test, newdata = forest.valid4)
-n = colnames(m.test)
-idxs = grep("forest.area.Area1|CoverType", n)
-m.test = m.test[,-idxs]
+#idxs = grep("forest.zone", colnames(forest.valid4))
+#m.test = dummyVars(" ~ .", data = forest.valid4[,-idxs])
+#m.test = predict(m.test, newdata = forest.valid4)
+#n = colnames(m.test)
+#idxs = grep("forest.area.Area1|CoverType", n)
+#m.test = m.test[,-idxs]
 #forest.nn5.pred = neuralnet::compute(forest.nn5, m.test)$net.result
 #head(forest.nn5.pred)
 
