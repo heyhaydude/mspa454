@@ -1532,6 +1532,42 @@ pred #44.1% misclassiciation rate
 ## Logistic Regression
 The model is sensitive to highly correlated predictors and near-zero predictors. The data must also be centered and scaled.
 
+```{r}
+forest.4 <- readRDS("forest.4b.rds")
+set.seed(456)
+intrain2<-createDataPartition(y=forest.4$CoverType,p=0.1,list=FALSE)
+forest.4.train<-forest.4[intrain2,]
+forest.4.test<-forest.4[-intrain2,]
+```
+
+
+
+```{r, eval=FALSE}
+lr.mod1 <- train(CoverType ~ ., data=forest.4.train, method="multinom")
+```
+
+
+
+```{r}
+#saveRDS(lr.mod1, "lr.mod1.rds")
+lr.mod1 <- readRDS("lr.mod1.rds")
+```
+
+Predict on Validation Set
+
+```{r}
+pred.lr.mod1 <- predict.train(lr.mod1, newdata = forest.4.test)
+xtab <- table(pred.lr.mod1, forest.4.test$CoverType ) 
+lr.mod1.cm <- confusionMatrix(xtab)
+```
+
+```{r}
+lr.mod1.cm
+```
+
+
+
+
 
 
 
