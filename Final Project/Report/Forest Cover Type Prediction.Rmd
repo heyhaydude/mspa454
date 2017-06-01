@@ -799,7 +799,7 @@ for (i in 1:7) {
   }
 }
 forest.train4 = forest.model4
-forest.valid4 = forest.model4[indices.valid,]
+forest.valid4 = forest.model2[indices.valid,]
 
 
 rm(list = c('indices.train', 'indices.valid', 'size.train', 'size.valid'))
