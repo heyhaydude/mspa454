@@ -1093,7 +1093,7 @@ forest.model.nn5 = forest.train4
 #idxs = grep("Elevation|HDist|trans|shade",colnames(forest.model.nn5))
 #forest.model.nn5[,idxs] = scale(forest.model.nn5[,idxs], center = TRUE, scale = TRUE)
 if (build) {
-  forest.nn5 = nnet(CoverType ~ . , data=forest.model.nn5, linout=FALSE, size=15, maxit=2000, decay=0.05, trace=FALSE, softmax=TRUE)
+  forest.nn5 = nnet(CoverType ~ . , data=forest.model.nn5, linout=FALSE, size=15, maxit=2000, decay=0.05, trace=FALSE)
   saveRDS(forest.nn5, "./forest.nn5")
 } else {
   forest.nn5 = readRDS("./forest.nn5")
