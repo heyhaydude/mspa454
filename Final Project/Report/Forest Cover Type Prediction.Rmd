@@ -535,7 +535,7 @@ Several of the multi-classification models we will rely on accounting for variab
 
 ```{r}
 
-idxs.nzv = nzv(forest.new)
+#idxs.nzv = nzv(forest.new)
 #colnames(forest.new)[idxs.nzv]
 
 ```
@@ -591,10 +591,10 @@ forest.train.rm$CoverType <- as.factor(forest.train.rm$CoverType)
 
 ```{r, eval=FALSE, warning=FALSE, error=FALSE}
 
-explore.lda <- train(CoverType ~ .,  data = forest.train.rm,
-                             method = "lda", 
-                             metric = "Kappa", 
-                             preProc = c("center", "scale"))
+#explore.lda <- train(CoverType ~ .,  data = forest.train.rm,
+                             #method = "lda", 
+                             #metric = "Kappa", 
+                             #preProc = c("center", "scale"))
 
 ```
 
@@ -1178,7 +1178,9 @@ forest.nn7.cm = caret::confusionMatrix(data=forest.nn7.pred, reference=forest.va
 forest.nn7.kappa = forest.nn7.cm$overall[2]
 forest.nn7.accuracy = forest.nn7.cm$overall[1]
 
+```
 
+```{r}
 ### add code for the best nn performer's accuracy, kappa, f1, and boxplot of f1
 #barplot(forest.nn1.cm$byClass[,7])
 
@@ -1400,7 +1402,7 @@ LDA assumes normal predictors and that the predictors have equal variance. LDA t
 
 ```{r, eval=FALSE, warning=FALSE, error=FALSE}
 set.seed(444)
-forest.model.lda1 = sample_n(forest.train1, 40000)
+forest.model.lda1 = forest.train4
 idxs = grep("Elevation|HDist|trans|shade",colnames(forest.model.lda1))
 forest.model.lda1[,idxs] = scale(forest.model.lda1[,idxs], center = TRUE, scale = TRUE)
 
@@ -1423,7 +1425,7 @@ forest.lda1 <- readRDS("./forest.lda1.rds")
 ```
 
 ```{r}
-forest.model.lda1.valid = forest.valid1[,-idx]
+forest.model.lda1.valid = forest.valid4
 idxs = grep("Elevation|HDist|trans|shade",colnames(forest.model.lda1.valid))
 forest.model.lda1.valid[,idxs] = scale(forest.model.lda1.valid[,idxs], center = TRUE, scale = TRUE)
 
@@ -1435,9 +1437,13 @@ forest.lda1.accuracy = forest.lda1.cm$overall[1]
 
 ```
 
+A matrix of predicted cover types below shoes how well LDA classified cover types. The LDA model had an accuracy of 61.8%, mis-classifying cover types for several different classes below. The model appeared to have an especially difficult time classifying Type 3.
+
 ```{r}
 pander(forest.lda1.cm$table)
 ```
+
+Because accuracy is not a good measurement for our imbalanced data set, we look at a F1 and Balanced Accuracy scores below to evaluate our models. Our model had poor results in our underrepresented classes. Many of the Type 3 cover types were mis-classified as Type 4 or 6.
 
 ```{r, fig.height=4, fig.cap="F1 for Linear Discriminant Analysis"}
 f1 <- as.data.frame(forest.lda1.cm$byClass[,7])
@@ -1446,6 +1452,14 @@ f1$Class <- row.names(f1)
 ggplot(data=f1, aes(x=Class, y = F1)) +
   geom_bar(stat="identity", width=0.5) + ggtitle("F1 Scores")
 
+```
+
+```{r}
+ba <- as.data.frame(forest.lda1.cm$byClass[,11])
+colnames(ba) <- "Balanced_Accuracy"
+ba$Class <- row.names(ba)
+ggplot(data=ba, aes(x=Class, y = Balanced_Accuracy)) +
+  geom_bar(stat="identity", width=0.5) + ggtitle("Balanced Accuracy")
 ```
 
 ## K-Nearest Neighbors
@@ -1527,10 +1541,10 @@ forest.valid.knn3.y <- forest.valid.knn3[24]
 #K-Fold Cross Validation
 set.seed(1)
 idx <- createFolds(forest.train.y , k=10)
-sapply(idx, length)
+#sapply(idx, length)
 
-head(forest.train.knn[,4])
-head(forest.train.knn3[24])
+#head(forest.train.knn[,4])
+#head(forest.train.knn3[24])
 
 #Optimize K
 ks <- 1:12
@@ -1564,7 +1578,8 @@ confusionMatrix(knn.confusion)
 
 
 ## Logistic Regression
-The model is sensitive to highly correlated predictors and near-zero predictors. The data must also be centered and scaled.
+
+The logistic regressino model is sensitive to highly correlated predictors and near-zero predictors. The data must also be centered and scaled.
 
 ```{r}
 forest.4 <- readRDS("forest.4b.rds")
@@ -1577,7 +1592,7 @@ forest.4.test<-forest.4[-intrain2,]
 
 
 ```{r, eval=FALSE}
-lr.mod1 <- train(CoverType ~ ., data=forest.4.train, method="multinom")
+#lr.mod1 <- train(CoverType ~ ., data=forest.4.train, method="multinom")
 ```
 
 
@@ -1587,22 +1602,16 @@ lr.mod1 <- train(CoverType ~ ., data=forest.4.train, method="multinom")
 lr.mod1 <- readRDS("lr.mod1.rds")
 ```
 
-Predict on Validation Set
-
 ```{r}
+#Predict on Validation Set
 pred.lr.mod1 <- predict.train(lr.mod1, newdata = forest.4.test)
 xtab <- table(pred.lr.mod1, forest.4.test$CoverType ) 
 lr.mod1.cm <- confusionMatrix(xtab)
 ```
 
 ```{r}
-lr.mod1.cm
+#lr.mod1.cm
 ```
-
-
-
-
-
 
 
 ## Support Vector Machine
@@ -1612,7 +1621,7 @@ A support vector machine algorithm an optimal hyperplane which categorizes new e
 ```{r}
 library(e1071)
 set.seed(444)
-forest.model.svm1 = sample_n(forest.train1, 40000)
+forest.model.svm1 = sample_n(forest.train4, 40000)
 idxs = grep("Elevation|HDist|trans|shade",colnames(forest.model.svm1))
 forest.model.svm1[,idxs] = scale(forest.model.svm1[,idxs], center = TRUE, scale = TRUE)
 
@@ -1630,7 +1639,7 @@ forest.svm1 <- readRDS("./forest.svm1.rds")
 
 
 ```{r}
-forest.model.svm1.valid = forest.valid1
+forest.model.svm1.valid = forest.valid4
 idxs = grep("Elevation|HDist|trans|shade",colnames(forest.model.svm1.valid))
 forest.model.svm1.valid[,idxs] = scale(forest.model.svm1.valid[,idxs], center = TRUE, scale = TRUE)
 
@@ -1650,9 +1659,13 @@ forest.svm1.kappa = forest.svm1.cm$overall[2]
 forest.svm1.accuracy = forest.svm1.cm$overall[1]
 ```
 
+A matrix of predicted cover types below shoes how well the Support Vector Machine model classified cover types. The SVM model had an accuracy of 75.0%, mis-classifying cover types for several different classes below. The model appeared to have an especially difficult time classifying Types 5 and 6.
+
 ```{r}
 pander(forest.svm1.cm$table)
 ```
+
+The bar chart below shows that all cover types were predicted by the SVM model. Many of the Type 5 cover types were mis-classified as Type 2 or 3, and Types 5 and 6 were under-represented.
 
 ```{r, fig.height=4, fig.cap="F1 for Support Vector Machines"}
 f1 <- as.data.frame(forest.svm1.cm$byClass[,7])
@@ -1663,20 +1676,32 @@ ggplot(data=f1, aes(x=Class, y = F1)) +
 
 ```
 
+
+
+```{r}
+ba <- as.data.frame(forest.svm1.cm$byClass[,11])
+colnames(ba) <- "Balanced_Accuracy"
+ba$Class <- row.names(ba)
+ggplot(data=ba, aes(x=Class, y = Balanced_Accuracy)) +
+  geom_bar(stat="identity", width=0.5) + ggtitle("Balanced Accuracy")
+```
+
 #Model Evaluation
+
+When working with a multiple classification problem, it is important to evaluate a model based on more than just its accuracy. 
 
 ```{r}
 
 #add Neural Network models, K Nearest Neighbor and Logistic Regression
 
-models = c("Random Forest","Random Forest w PCA", "Linear Discriminant Analysis","Support Vector Machines")
+models = c("Neural Network- 15 Nodes","Random Forest","Random Forest w PCA", "Linear Discriminant Analysis","Support Vector Machines")
 
 stats = c("Model", "Accuracy", "Kappa")
 
-accuracy = round(c(cm.rf1$overall[1],cm.rf2$overall[1],forest.lda1.accuracy,forest.svm1.accuracy),
+accuracy = round(c(forest.nn5.accuracy,cm.rf1$overall[1],cm.rf2$overall[1],forest.lda1.accuracy,forest.svm1.accuracy),
 digits = 3)
 
-kappa = round(c(cm.rf1$overall[2],cm.rf2$overall[2],forest.lda1.kappa,forest.svm1.kappa),
+kappa = round(c(forest.nn5.kappa,cm.rf1$overall[2],cm.rf2$overall[2],forest.lda1.kappa,forest.svm1.kappa),
 digits = 3)
 
 summary_table = cbind(models,accuracy,kappa)
