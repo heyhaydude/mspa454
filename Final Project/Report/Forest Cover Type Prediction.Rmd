@@ -1451,7 +1451,7 @@ ggplot(data=f1, aes(x=Class, y = F1)) +
 ## K-Nearest Neighbors
 Predictions are made for by searching through the entire training set for the K most similar instances and summarizing the most common class for those K instances. KNN is suited for lower dimensional data. We will need to center and scale predictors prior to performing KNN. The model is sensitive to near-zero predictors and the tuning parameter is k.
 
-K Nearest Neighbor (KNN) modeling involves a relatively simple algorithm that classifiers a target variable based on the classification of the “k” nearest neighbors. K is selected using cross-validation to avoid over-fitting. For our model, we used five- fold cross validation across K values ranging from 2-10. Predictor variables were normalized across a random sample of 40,000 training observations. The best performing model used three Shade PCA variables along with summarized Soil Types in the form of Forest Zones. An optimal “k” value of 3 was elected for this model, which resulted in model that performed poorly with a 44.1% misclassification rate.
+K Nearest Neighbor (KNN) modeling involves a relatively simple algorithm that classifiers a target variable based on the classification of the “k” nearest neighbors. K is selected using cross-validation to avoid over-fitting. For our model, we used ten-fold cross validation across K values ranging from 2-12. Predictor variables were normalized across a random sample of 40,000 training observations. The best performing model used three Shade PCA variables along with summarized Soil Types in the form of Forest Zones. An optimal “k” value of 9 was elected for this model, which resulted in model that had a 19.1% misclassification rate and Kappa alue of 0.6983.
 
 ```{r knn, eval=FALSE}
 library(class)
@@ -1461,23 +1461,23 @@ library(knncat)
 
 # temp make training set smaller.
 set.seed(444)
-forest.train.knn <- forest.train1[sample(nrow(forest.train1), 40000, replace = FALSE),]
-colnames(forest.train1)
+forest.train.knn <- na.omit(forest.train4)
+forest.valid.knn <- na.omit(forest.valid4)
+names(forest.train.knn)
 
-#Removing CoverType and Forest Zone Variables from model for now.
-#Researching how to treat them
-forest.train.x <- forest.train.knn[,-c(4,9,10)]
-forest.train.y <- forest.train.knn[,9]
-forest.valid.x <- forest.valid1[,-c(4,9,10)]
-forest.valid.y <- forest.valid1[,9]
+#prep data for centering and scaling by removing qualititative variables
+forest.train.x <- forest.train.knn[,-c(4,25,26)]
+forest.train.y <- forest.train.knn[,4]
+forest.valid.x <- forest.valid.knn[,-c(4,25,26)]
+forest.valid.y <- forest.valid.knn[,4]
 
 
 #normalize and standardize training data
 df.mean.train <- apply(forest.train.x, 2, mean)
 df.sd.train <- apply(forest.train.x, 2, sd)
 df.std.train <- t((t(forest.train.x)-df.mean.train)/df.sd.train) #standardize to have 0 mean and unit sd
-apply(df.std.train, 2, mean) # check zero mean
-apply(df.std.train, 2, sd) # check unit sd
+#apply(df.std.train, 2, mean) # check zero mean
+#apply(df.std.train, 2, sd) # check unit sd
 
 
 forest.train.knn3 <-df.std.train
@@ -1485,9 +1485,9 @@ forest.train.knn3 <- cbind(df.std.train,
                        forest.train.knn$CoverType, 
                        forest.train.knn$forest.area,
                        forest.train.knn$forest.zone)
-colnames(forest.train.knn3)[8] <- "CoverType"
-colnames(forest.train.knn3)[9] <- "forest.area"
-colnames(forest.train.knn3)[10] <- "forest.zone"
+colnames(forest.train.knn3)[24] <- "CoverType"
+colnames(forest.train.knn3)[25] <- "forest.area"
+colnames(forest.train.knn3)[26] <- "forest.zone"
 forest.train.knn3 <- as.data.frame(forest.train.knn3)
 forest.train.knn3$CoverType <- as.factor(forest.train.knn3$CoverType)
 forest.train.knn3$forest.area <- as.factor(forest.train.knn3$forest.area)
@@ -1498,32 +1498,66 @@ forest.train.knn3$forest.zone <- as.factor(forest.train.knn3$forest.zone)
 df.mean.valid <- apply(forest.valid.x, 2, mean)
 df.sd.valid <- apply(forest.valid.x, 2, sd)
 df.std.valid <- t((t(forest.valid.x)-df.mean.valid)/df.sd.valid) #standardize to have 0 mean and unit sd
-apply(df.std.valid, 2, mean) # check zero mean
-apply(df.std.valid, 2, sd) # check unit sd
+#apply(df.std.valid, 2, mean) # check zero mean
+#apply(df.std.valid, 2, sd) # check unit sd
 
 forest.valid.knn3 <- df.std.valid
 forest.valid.knn3 <- cbind(df.std.valid,
-                       forest.valid1$CoverType, 
-                       forest.valid1$forest.area,
-                       forest.valid1$forest.zone)
-colnames(forest.valid.knn3)[8] <- "CoverType"
-colnames(forest.valid.knn3)[9] <- "forest.area"
-colnames(forest.valid.knn3)[10] <- "forest.zone"
+                           forest.valid.knn$CoverType, 
+                           forest.valid.knn$forest.area,
+                           forest.valid.knn$forest.zone)
+colnames(forest.valid.knn3)[24] <- "CoverType"
+colnames(forest.valid.knn3)[25] <- "forest.area"
+colnames(forest.valid.knn3)[26] <- "forest.zone"
 forest.valid.knn3 <- as.data.frame(forest.valid.knn3)
 forest.valid.knn3$CoverType <- as.factor(forest.valid.knn3$CoverType)
 forest.valid.knn3$forest.area <- as.factor(forest.valid.knn3$forest.area)
 forest.valid.knn3$forest.zone <- as.factor(forest.valid.knn3$forest.zone)
 
+#table(forest.train.knn3[24])
+#table(forest.valid.knn3[24])
+#str(forest.train.y[24])
 
-#Modeling
-pred <-knncat(forest.train.knn3, 
-              forest.valid.knn3,
-              classcol = 9,
-              k= c(2,3,4,5,6,7,8,9,10), #values of K to test
-              xvals = 5) #cross-validation folds
-pred$best.k #K=3 from CV
-pred$misclass.mat #Confusion Matrix
-pred #44.1% misclassiciation rate
+forest.train.knn3.x <- forest.train.knn3[,-c(24)]
+forest.train.knn3.y <- forest.train.knn3[24]
+forest.valid.knn3.x <- forest.valid.knn3[,-c(24)]
+forest.valid.knn3.y <- forest.valid.knn3[24]
+
+
+#K-Fold Cross Validation
+set.seed(1)
+idx <- createFolds(forest.train.y , k=10)
+sapply(idx, length)
+
+head(forest.train.knn[,4])
+head(forest.train.knn3[24])
+
+#Optimize K
+ks <- 1:12
+res <- sapply(ks, function(k) {
+  ##try out each version of k from 1 to 12
+  res.k <- sapply(seq_along(idx), function(i) {
+    ##loop over each of the 10 cross-validation folds
+    ##predict the held-out samples using k nearest neighbors
+    knn.pred <- knn(forest.train.knn3.x[-idx[[1]] , ], 
+                    forest.valid.knn3.x[ idx[[1]], ], 
+                    forest.train.y[-idx[[1]] ], 
+                    k = k)
+    ##the ratio of misclassified samples
+    mean(forest.valid.y[ idx[[i]] ] != knn.pred)
+  })
+  ##average over the 10 folds
+  mean(res.k)
+})
+#res
+
+df.knn <- knn(forest.train.knn3.x,forest.valid.knn3.x,forest.train.y,k=9)
+knn.confusion <- table(df.knn,forest.valid.y[ idx[[1]] ] )
+knn.confusion <- table(df.knn,forest.valid.y)
+
+plot(ks, res, type="o",ylab="misclassification error") #K=9
+confusionMatrix(knn.confusion)
+
 
 ```
 
